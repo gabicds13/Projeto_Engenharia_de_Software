@@ -1,0 +1,73 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ==========================================================================
+   Tokens do Design System — Módulo 6 (ver .kiro/steering/design-system.md)
+   ========================================================================== */
+:root {
+  /* Marca */
+  --color-primary: #1e2a5a; /* botões, links, navbar, item ativo */
+  --color-primary-hover: #2f3f7f;
+  --color-brand-accent: #c8102e; /* SOMENTE logo e detalhes de marca */
+
+  /* Neutros (claro) */
+  --color-bg: #f6f7fa;
+  --color-surface: #ffffff;
+  --color-border: #e2e5ec;
+  --color-text: #1a1d29;
+  --color-text-muted: #5b6275;
+
+  /* Prioridade */
+  --color-priority-critical: #dc2626;
+  --color-priority-high: #ea580c;
+  --color-priority-medium: #b45309;
+  --color-priority-low: #64748b;
+  --color-success: #16a34a;
+
+  /* Gráficos (use nesta ordem) */
+  --chart-1: #3b5bdb;
+  --chart-2: #0ea5a4;
+  --chart-3: #8b5cf6;
+  --chart-4: #f59e0b;
+  --chart-5: #ec4899;
+
+  /* Tipografia */
+  --font-sans: "Inter", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+  --text-xs: 12px;
+  --text-sm: 14px;
+  --text-md: 16px;
+  --text-lg: 20px;
+  --text-xl: 24px;
+  --text-2xl: 32px;
+}
+
+[data-theme="dark"] {
+  --color-bg: #0f1220;
+  --color-surface: #181c2e;
+  --color-border: #2a2f45;
+  --color-text: #e8eaf2;
+  --color-text-muted: #9aa0b4;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+}
+
+/* Números do dashboard: largura fixa dos dígitos para não "dançar" em tempo real */
+.metric {
+  font-variant-numeric: tabular-nums;
+}

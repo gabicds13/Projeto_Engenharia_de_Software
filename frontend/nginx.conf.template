@@ -1,0 +1,37 @@
+# Template processado na inicialização do container (envsubst substitui ${PORT} e
+# ${BFF_UPSTREAM}). Render define PORT (padrão 10000); no docker-compose usamos 80.
+server {
+    listen ${PORT};
+    server_name _;
+    root /usr/share/nginx/html;
+    index index.html;
+
+    # DNS interno do Docker — permite resolver o host do BFF só em tempo de request.
+    resolver 127.0.0.11 valid=10s ipv6=off;
+    set $bff_upstream ${BFF_UPSTREAM};
+
+    # SPA: todas as rotas caem no index.html (react-router)
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+
+    # Proxy para o BFF — usado no docker-compose local (serviço "bff").
+    # Na nuvem, o portal fala direto com a URL pública do BFF (VITE_API_BASE_URL),
+    # então estes blocos não são exercitados. Usar uma variável em proxy_pass adia a
+    # resolução de DNS para o momento da requisição, evitando que o nginx caia na
+    # inicialização quando o host "bff" não existe (ex.: no Render).
+    location /api/ {
+        proxy_pass http://$bff_upstream;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+
+    location /ws/ {
+        proxy_pass http://$bff_upstream;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_read_timeout 3600s;
+    }
+}
