@@ -59,7 +59,7 @@ jobs:
       - name: Deploy backend to Azure
         uses: azure/webapps-deploy@v3
         with:
-          app-name: 'software6-bff'
+          app-name: 'software6-bff-2'
           slot-name: 'Production'
           package: ./backend
           
