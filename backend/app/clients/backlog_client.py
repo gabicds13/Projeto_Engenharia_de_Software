@@ -1,4 +1,4 @@
-"""Client do Módulo 1 (Auth/Backlog): User Stories e reviews pendentes."""
+"""Client do Backlog do Módulo 1."""
 from __future__ import annotations
 
 from typing import Protocol
@@ -15,33 +15,84 @@ class BacklogClient(Protocol):
 
 
 class MockBacklogClient:
-    """Dados determinísticos para a demo (números estáveis entre chamadas)."""
+    """Dados de demonstração usados enquanto o Backlog real não está ativo."""
 
     async def stories_by_status(self, project_id: str) -> StoriesByStatus:
-        return StoriesByStatus(todo=8, in_progress=5, in_review=3, done=14)
+        return StoriesByStatus(
+            todo=8,
+            in_progress=5,
+            in_review=3,
+            done=14,
+        )
 
     async def reviews_pending(self, project_id: str) -> int:
         return 3
 
 
 class HttpBacklogClient:
-    def __init__(self, base_url: str, headers: dict[str, str] | None = None):
+    """Consome o Backlog real do Módulo 1."""
+
+    def __init__(
+        self,
+        base_url: str,
+        headers: dict[str, str] | None = None,
+    ):
         self._base_url = base_url.rstrip("/")
         self._headers = headers or {}
 
-    async def stories_by_status(self, project_id: str) -> StoriesByStatus:
-        async with httpx.AsyncClient(headers=self._headers) as c:
-            r = raise_for_status(
-                await c.get(f"{self._base_url}/api/v1/projects/{project_id}/stories/summary")
+    async def stories_by_status(
+        self,
+        project_id: str,
+    ) -> StoriesByStatus:
+        async with httpx.AsyncClient(
+            headers=self._headers,
+        ) as client:
+            response = raise_for_status(
+                await client.get(
+                    f"{self._base_url}/projects/{project_id}/stories"
+                )
             )
-            try:
-                return StoriesByStatus.model_validate(r.json())
-            except Exception as exc:  # noqa: BLE001
-                raise UpstreamError(f"resposta inválida do backlog: {exc}") from exc
 
-    async def reviews_pending(self, project_id: str) -> int:
-        async with httpx.AsyncClient(headers=self._headers) as c:
-            r = raise_for_status(
-                await c.get(f"{self._base_url}/api/v1/projects/{project_id}/reviews/pending")
+        try:
+            data = response.json()
+
+            if isinstance(data, list):
+                stories = data
+            elif isinstance(data, dict):
+                stories = data.get("items", [])
+            else:
+                stories = []
+
+            counts = {
+                "todo": 0,
+                "in_progress": 0,
+                "done": 0,
+            }
+
+            for story in stories:
+                status = story.get("status")
+
+                if status in counts:
+                    counts[status] += 1
+
+            return StoriesByStatus(
+                todo=counts["todo"],
+                in_progress=counts["in_progress"],
+                in_review=0,
+                done=counts["done"],
             )
-            return int(r.json().get("count", 0))
+
+        except Exception as exc:
+            raise UpstreamError(
+                f"Resposta inválida do Backlog do Módulo 1: {exc}"
+            ) from exc
+
+    async def reviews_pending(
+        self,
+        project_id: str,
+    ) -> int:
+        # Reviews não pertencem ao Backlog do Módulo 1.
+        # Essa métrica será integrada com o módulo responsável depois.
+        raise UpstreamError(
+            "Reviews pendentes não são fornecidos pelo Backlog do Módulo 1."
+        )

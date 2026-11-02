@@ -29,6 +29,7 @@ class Settings(BaseSettings):
 
     # Mocks dos serviços downstream (demo sem os outros grupos no ar)
     use_mocks: bool = True
+    use_backlog_mock: bool = False
 
     # Autenticação (JWT emitido pelo Módulo 1)
     jwt_secret: str = "dev-secret-change-me"

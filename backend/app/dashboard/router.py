@@ -1,12 +1,12 @@
 """Rota do dashboard: agrega métricas dos Módulos 1 e 2."""
 from __future__ import annotations
-from app.core.errors import ForbiddenError
-from app.clients.projects_client import ensure_project_access
-from app.core.config import Settings, get_settings
 
 from fastapi import APIRouter, Depends, Query
 
 from app.clients import get_backlog_client, get_github_client
+from app.clients.backlog_client import HttpBacklogClient
+from app.clients.projects_client import ensure_project_access
+from app.core.config import Settings, get_settings
 from app.core.errors import ForbiddenError
 from app.core.resilience import get_registry
 from app.core.security import CurrentUser, get_current_user
@@ -29,8 +29,18 @@ async def get_dashboard(
     else:
         await ensure_project_access(project_id, user, settings)
 
+    if user.role is not None or settings.use_backlog_mock:
+        backlog_client = get_backlog_client()
+    else:
+        backlog_client = HttpBacklogClient(
+            settings.module1_backlog_url,
+            headers={
+                "Authorization": f"Bearer {user.access_token}",
+            },
+        )
+
     aggregator = MetricsAggregator(
-        backlog=get_backlog_client(),
+        backlog=backlog_client,
         github=get_github_client(),
         registry=get_registry(),
     )
