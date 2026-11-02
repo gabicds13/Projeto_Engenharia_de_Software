@@ -36,6 +36,15 @@ class Settings(BaseSettings):
     jwt_issuer: str | None = None
     jwt_audience: str | None = None
 
+
+    # Integração real com o Módulo 1
+    module1_auth_url: str = "https://mod1-auth.whitemeadow-deba1090.brazilsouth.azurecontainerapps.io"
+    module1_projects_url: str = "https://mod1-projects.whitemeadow-deba1090.brazilsouth.azurecontainerapps.io"
+    module1_backlog_url: str = "https://mod1-backlog.whitemeadow-deba1090.brazilsouth.azurecontainerapps.io"
+    module1_jwks_url: str = "https://mod1-auth.whitemeadow-deba1090.brazilsouth.azurecontainerapps.io/.well-known/jwks.json"
+    module1_jwt_issuer: str = "https://mod1-auth.whitemeadow-deba1090.brazilsouth.azurecontainerapps.io"
+    module1_jwt_audience: str = "engenharia-software-api"
+
     # Login de desenvolvimento (gera tokens de PO/PM/Dev sem senha).
     # Em development fica sempre ligado. Em produção, só quando esta flag é "true"
     # — útil para demonstrar o portal enquanto o Módulo 1 (auth real) não existe.

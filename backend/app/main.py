@@ -35,7 +35,15 @@ def create_app() -> FastAPI:
 
     register_exception_handlers(app)
 
+    
+
     app.include_router(health_router)
+    from app.api.auth import router as auth_router
+
+    app.include_router(auth_router)
+    from app.api.projects import router as projects_router
+
+    app.include_router(projects_router)
 
     from app.dashboard.router import router as dashboard_router
     from app.notifications.router import router as notifications_router

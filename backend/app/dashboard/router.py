@@ -1,5 +1,8 @@
 """Rota do dashboard: agrega métricas dos Módulos 1 e 2."""
 from __future__ import annotations
+from app.core.errors import ForbiddenError
+from app.clients.projects_client import ensure_project_access
+from app.core.config import Settings, get_settings
 
 from fastapi import APIRouter, Depends, Query
 
@@ -17,12 +20,19 @@ router = APIRouter(prefix="/api/bff/dashboard", tags=["dashboard"])
 async def get_dashboard(
     project_id: str = Query(..., description="Projeto cujas métricas serão agregadas"),
     user: CurrentUser = Depends(get_current_user),
+    settings: Settings = Depends(get_settings),
 ) -> DashboardResponse:
-    if not user.can_access_project(project_id):
-        raise ForbiddenError("Usuário não participa deste projeto.")
+
+    if user.role is not None:
+        if not user.can_access_project(project_id):
+            raise ForbiddenError("Usuário não participa deste projeto.")
+    else:
+        await ensure_project_access(project_id, user, settings)
+
     aggregator = MetricsAggregator(
         backlog=get_backlog_client(),
         github=get_github_client(),
         registry=get_registry(),
     )
+
     return await aggregator.build(project_id)
