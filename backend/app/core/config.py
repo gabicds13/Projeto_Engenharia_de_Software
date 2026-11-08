@@ -36,6 +36,7 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     jwt_issuer: str | None = None
     jwt_audience: str | None = None
+    integration_api_key: str = "dev-integration-key"
 
 
     # Integração real com o Módulo 1

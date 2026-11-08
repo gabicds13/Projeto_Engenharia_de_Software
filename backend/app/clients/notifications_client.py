@@ -33,6 +33,7 @@ class NotificationsClient(Protocol):
     async def unread_count(self, user: CurrentUser) -> UnreadCount: ...
     async def mark_read(self, user: CurrentUser, notif_id: str) -> None: ...
     async def mark_all_read(self, user: CurrentUser) -> None: ...
+    async def publish(self, notification: Notification) -> Notification: ...
     def ws_source(self, user: CurrentUser) -> AsyncIterator[dict]: ...
 
 
@@ -144,6 +145,9 @@ class MockNotificationsClient:
                 self._items[idx] = n.model_copy(
                     update={"read_at": datetime.now(timezone.utc)}
                 )
+    async def publish(self, notification: Notification) -> Notification:
+      self._items.append(notification)
+      return notification
 
     async def mark_all_read(self, user: CurrentUser) -> None:
         now = datetime.now(timezone.utc)

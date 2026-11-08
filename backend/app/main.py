@@ -45,6 +45,10 @@ def create_app() -> FastAPI:
 
     app.include_router(projects_router)
 
+    from app.api.integrations import router as integrations_router
+
+    app.include_router(integrations_router)
+
     from app.dashboard.router import router as dashboard_router
     from app.notifications.router import router as notifications_router
     from app.notifications.router import ws_router as notifications_ws_router
