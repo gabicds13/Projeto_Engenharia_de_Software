@@ -37,6 +37,8 @@ class Settings(BaseSettings):
     jwt_issuer: str | None = None
     jwt_audience: str | None = None
     integration_api_key: str = "dev-integration-key"
+    database_url: str | None = None
+    use_notifications_db: bool = False
 
 
     # Integração real com o Módulo 1

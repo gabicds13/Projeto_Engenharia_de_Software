@@ -9,7 +9,7 @@ import pytest
 os.environ.setdefault("APP_ENV", "development")
 os.environ.setdefault("USE_MOCKS", "true")
 os.environ.setdefault("JWT_SECRET", "test-secret")
-
+os.environ.setdefault("USE_NOTIFICATIONS_DB", "false")
 
 @pytest.fixture
 def client():
