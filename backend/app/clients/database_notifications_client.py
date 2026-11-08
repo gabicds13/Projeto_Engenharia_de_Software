@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 from typing import AsyncIterator
 
 from sqlalchemy import select, update
+from sqlalchemy.exc import IntegrityError
 
 from app.core.database import get_session_factory
 from app.core.security import CurrentUser
@@ -21,6 +22,7 @@ from app.models.notification import NotificationModel
 def _to_notification(row: NotificationModel) -> Notification:
     return Notification(
         id=row.id,
+        event_id=row.event_id,
         project_id=row.project_id,
         source=Source(row.source),
         type=row.type,
@@ -44,8 +46,19 @@ class DatabaseNotificationsClient:
         session_factory = get_session_factory()
 
         with session_factory() as db:
+            if notification.event_id:
+                existing = db.scalar(
+                    select(NotificationModel).where(
+                        NotificationModel.event_id == notification.event_id
+                    )
+                )
+
+                if existing is not None:
+                    return _to_notification(existing)
+
             row = NotificationModel(
                 id=notification.id,
+                event_id=notification.event_id,
                 project_id=notification.project_id,
                 source=notification.source.value,
                 type=notification.type,
@@ -61,7 +74,23 @@ class DatabaseNotificationsClient:
             )
 
             db.add(row)
-            db.commit()
+
+            try:
+                db.commit()
+            except IntegrityError:
+                db.rollback()
+
+                if notification.event_id:
+                    existing = db.scalar(
+                        select(NotificationModel).where(
+                            NotificationModel.event_id == notification.event_id
+                        )
+                    )
+
+                    if existing is not None:
+                        return _to_notification(existing)
+
+                raise
 
         return notification
 
@@ -94,7 +123,6 @@ class DatabaseNotificationsClient:
                 statement = statement.where(
                     NotificationModel.read_at.is_(None)
                 )
-
             elif status == "read":
                 statement = statement.where(
                     NotificationModel.read_at.is_not(None)

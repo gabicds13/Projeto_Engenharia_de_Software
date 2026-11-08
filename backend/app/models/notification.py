@@ -12,6 +12,12 @@ class NotificationModel(Base):
     __tablename__ = "notifications"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    event_id: Mapped[str | None] = mapped_column(
+    String(100),
+    unique=True,
+    nullable=True,
+    index=True,
+    )
 
     project_id: Mapped[str] = mapped_column(String(100), index=True)
 

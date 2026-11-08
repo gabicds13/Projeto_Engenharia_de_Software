@@ -3,6 +3,7 @@ from __future__ import annotations
 
 def _payload() -> dict:
     return {
+        "event_id": "test-event-001",
         "project_id": "proj-123",
         "source": "code_review",
         "type": "review.completed",

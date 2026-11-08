@@ -18,6 +18,7 @@ router = APIRouter(
 
 
 class NotificationInput(BaseModel):
+    event_id: str
     project_id: str
     source: Source
     type: str
@@ -41,7 +42,9 @@ async def publish_notification(
         )
 
     notification = Notification(
+        
         id=str(uuid4()),
+        event_id=data.event_id,
         project_id=data.project_id,
         source=data.source,
         type=data.type,

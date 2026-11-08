@@ -31,6 +31,7 @@ class Source(str, Enum):
 
 class Notification(BaseModel):
     id: str
+    event_id: str | None = None
     source: Source
     type: str
     priority: Priority
