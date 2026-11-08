@@ -90,9 +90,17 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const socketUrl =
-    user && getToken() ? wsUrl(`/ws/notifications?token=${getToken()}`) : null;
-  const status = useWebSocket(socketUrl, { onMessage, onReconnect: refresh, enabled: !!user });
+  const token = user ? getToken() : null;
+
+const socketUrl =
+  user && token ? wsUrl("/ws/notifications") : null;
+
+const status = useWebSocket(socketUrl, {
+  onMessage,
+  onReconnect: refresh,
+  enabled: !!user,
+  authToken: token ?? undefined,
+});
 
   useEffect(() => {
     if (user) void refresh();

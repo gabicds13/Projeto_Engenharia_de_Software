@@ -8,7 +8,11 @@ from pydantic import BaseModel
 
 from app.clients import get_notifications_client
 from app.core.resilience import UpstreamUnavailable, get_registry
-from app.core.security import CurrentUser, get_current_user, ws_authenticate
+from app.core.security import (
+    CurrentUser,
+    get_current_user,
+    ws_authenticate_message,
+)
 from app.core.ws_bridge import pump
 from app.domain.schemas import NotificationPage, Priority, Source, UnreadCount
 
@@ -92,9 +96,13 @@ ws_router = APIRouter()
 @ws_router.websocket("/ws/notifications")
 async def notifications_ws(websocket: WebSocket) -> None:
     try:
-        user = await ws_authenticate(websocket)
+        user = await ws_authenticate_message(websocket)
     except Exception:
         await websocket.close(code=1008)  # policy violation
         return
     client = get_notifications_client()
-    await pump(websocket, lambda: client.ws_source(user))
+    await pump(
+    websocket,
+    lambda: client.ws_source(user),
+    accept=False,
+)

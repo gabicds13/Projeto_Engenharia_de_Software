@@ -3,11 +3,13 @@ import { useEffect, useRef, useState } from "react";
 type Status = "connecting" | "open" | "closed";
 
 interface Options {
+
   // Chamado a cada mensagem JSON recebida.
   onMessage: (data: unknown) => void;
   // Chamado quando (re)conecta, para o consumidor recuperar o que perdeu via REST.
   onReconnect?: () => void;
   enabled?: boolean;
+  authToken?: string;
 }
 
 const MAX_BACKOFF_MS = 15_000;
@@ -18,7 +20,7 @@ const MAX_BACKOFF_MS = 15_000;
  * (recuperação sem duplicatas — a idempotência fica no ms-notifications).
  */
 export function useWebSocket(url: string | null, opts: Options): Status {
-  const { onMessage, onReconnect, enabled = true } = opts;
+  const { onMessage, onReconnect, enabled = true, authToken } = opts;
   const [status, setStatus] = useState<Status>("closed");
   const attemptRef = useRef(0);
   const msgRef = useRef(onMessage);
@@ -39,6 +41,16 @@ export function useWebSocket(url: string | null, opts: Options): Status {
 
       ws.onopen = () => {
         attemptRef.current = 0;
+      
+        if (authToken) {
+          ws?.send(
+            JSON.stringify({
+              type: "auth",
+              token: authToken,
+            }),
+          );
+        }
+      
         setStatus("open");
         reconnectRef.current?.();
       };
@@ -70,7 +82,7 @@ export function useWebSocket(url: string | null, opts: Options): Status {
       if (timer) clearTimeout(timer);
       ws?.close();
     };
-  }, [url, enabled]);
+  }, [url, enabled, authToken]);
 
   return status;
 }

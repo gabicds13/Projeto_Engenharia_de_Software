@@ -200,7 +200,37 @@ async def ws_authenticate(websocket: WebSocket) -> CurrentUser:
 
     return _user_from_claims(claims)
 
+async def ws_authenticate_message(websocket: WebSocket) -> CurrentUser:
+    """Autentica WebSocket pelo primeiro pacote JSON recebido."""
 
+    settings = get_settings()
+
+    await websocket.accept()
+
+    try:
+        message = await websocket.receive_json()
+    except Exception as exc:
+        raise UnauthorizedError(
+            "Não foi possível ler a autenticação do WebSocket."
+        ) from exc
+
+    if not isinstance(message, dict):
+        raise UnauthorizedError("Mensagem de autenticação inválida.")
+
+    if message.get("type") != "auth":
+        raise UnauthorizedError("Primeira mensagem deve ser de autenticação.")
+
+    token = message.get("token")
+
+    if not token or not isinstance(token, str):
+        raise UnauthorizedError("Token ausente na autenticação do WebSocket.")
+
+    claims = await _decode(token, settings)
+
+    return _user_from_claims(
+        claims,
+        access_token=token,
+    )
 def downstream_headers(user: CurrentUser) -> dict[str, str]:
     """Compatibilidade temporária com os serviços atuais do MVP."""
 

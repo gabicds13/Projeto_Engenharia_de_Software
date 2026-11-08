@@ -96,10 +96,15 @@ def test_upstream_unavailable_returns_state(client, monkeypatch):
 def test_ws_rejects_without_token(client):
     from starlette.websockets import WebSocketDisconnect
 
-    with pytest.raises(WebSocketDisconnect):
-        with client.websocket_connect("/ws/notifications"):
-            pass
+    with client.websocket_connect("/ws/notifications") as ws:
+        ws.send_json(
+            {
+                "type": "auth",
+            }
+        )
 
+        with pytest.raises(WebSocketDisconnect):
+            ws.receive_json()
 
 def test_ws_streams_with_valid_token(client, monkeypatch):
     import app.notifications.router as nrouter
@@ -111,7 +116,19 @@ def test_ws_streams_with_valid_token(client, monkeypatch):
         async def ws_source(self, user):
             yield {"event": "notification.new", "data": {"id": "ntf-x"}}
 
-    monkeypatch.setattr(nrouter, "get_notifications_client", lambda: FastSource())
-    with client.websocket_connect(f"/ws/notifications?token={_token()}") as ws:
+    monkeypatch.setattr(
+        nrouter,
+        "get_notifications_client",
+        lambda: FastSource(),
+    )
+
+    with client.websocket_connect("/ws/notifications") as ws:
+        ws.send_json(
+            {
+                "type": "auth",
+                "token": _token(),
+            }
+        )
+
         msg = ws.receive_json()
         assert msg["event"] == "notification.new"

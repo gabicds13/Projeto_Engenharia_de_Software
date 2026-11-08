@@ -17,6 +17,8 @@ logger = logging.getLogger("bff.ws")
 async def pump(
     websocket: WebSocket,
     source_factory: Callable[[], AsyncIterator[dict]],
+    *,
+    accept: bool = True,
 ) -> None:
     """Aceita a conexão e repassa cada mensagem do source ao cliente.
 
@@ -24,7 +26,8 @@ async def pump(
     Qualquer falha do upstream encerra a conexão de forma limpa — o cliente
     reconecta com backoff (lógica do front-end).
     """
-    await websocket.accept()
+    if accept:
+      await websocket.accept()
     source = source_factory()
 
     async def forward() -> None:
