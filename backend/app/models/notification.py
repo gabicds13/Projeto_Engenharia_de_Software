@@ -1,43 +1,77 @@
 from __future__ import annotations
-
 from datetime import datetime
-
 from sqlalchemy import DateTime, Float, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
-
 from app.core.database import Base
 
 
 class NotificationModel(Base):
     __tablename__ = "notifications"
 
-    id: Mapped[str] = mapped_column(String(36), primary_key=True)
-    event_id: Mapped[str | None] = mapped_column(
-    String(100),
-    unique=True,
-    nullable=True,
-    index=True,
+    id: Mapped[str] = mapped_column(
+        String(36),
+        primary_key=True,
     )
 
-    project_id: Mapped[str] = mapped_column(String(100), index=True)
+    event_id: Mapped[str | None] = mapped_column(
+        String(100),
+        unique=True,
+        nullable=True,
+        index=True,
+    )
 
-    source: Mapped[str] = mapped_column(String(50), index=True)
+    scope: Mapped[str] = mapped_column(
+        String(20),
+        nullable=False,
+        default="project",
+        server_default="project",
+        index=True,
+    )
 
-    type: Mapped[str] = mapped_column(String(100))
+    project_id: Mapped[str | None] = mapped_column(
+        String(100),
+        nullable=True,
+        index=True,
+    )
 
-    priority: Mapped[str] = mapped_column(String(20), index=True)
+    source: Mapped[str] = mapped_column(
+        String(50),
+        index=True,
+    )
 
-    relevance_score: Mapped[float] = mapped_column(Float)
+    type: Mapped[str] = mapped_column(
+        String(100),
+    )
 
-    reason: Mapped[str] = mapped_column(Text)
+    priority: Mapped[str] = mapped_column(
+        String(20),
+        index=True,
+    )
 
-    classified_by: Mapped[str] = mapped_column(String(20))
+    relevance_score: Mapped[float] = mapped_column(
+        Float,
+    )
 
-    title: Mapped[str] = mapped_column(String(255))
+    reason: Mapped[str] = mapped_column(
+        Text,
+    )
 
-    body: Mapped[str] = mapped_column(Text)
+    classified_by: Mapped[str] = mapped_column(
+        String(20),
+    )
 
-    link: Mapped[str | None] = mapped_column(Text, nullable=True)
+    title: Mapped[str] = mapped_column(
+        String(255),
+    )
+
+    body: Mapped[str] = mapped_column(
+        Text,
+    )
+
+    link: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+    )
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),

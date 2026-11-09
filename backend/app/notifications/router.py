@@ -1,5 +1,7 @@
 """Rotas de notificações: proxy REST + WebSocket bridge para o ms-notifications."""
 from __future__ import annotations
+from dataclasses import replace
+
 
 from typing import Literal
 
@@ -15,8 +17,20 @@ from app.core.security import (
 )
 from app.core.ws_bridge import pump
 from app.domain.schemas import NotificationPage, Priority, Source, UnreadCount
+from app.clients.projects_client import list_accessible_project_ids
+from app.core.config import Settings, get_settings
 
 router = APIRouter(prefix="/api/bff/notifications", tags=["notifications"])
+async def _user_with_accessible_projects(
+    user: CurrentUser,
+    settings: Settings,
+) -> CurrentUser:
+    project_ids = await list_accessible_project_ids(user, settings)
+
+    return replace(
+        user,
+        project_ids=project_ids,
+    )
 
 
 class ListResult(BaseModel):
@@ -41,7 +55,12 @@ async def list_notifications(
     status: Literal["read", "unread"] | None = Query(None),
     limit: int = Query(20, ge=1, le=100),
     user: CurrentUser = Depends(get_current_user),
+    settings: Settings = Depends(get_settings),
 ) -> ListResult:
+    user = await _user_with_accessible_projects(
+    user,
+    settings,
+)
     client = get_notifications_client()
     reg = get_registry()
     try:
@@ -62,7 +81,14 @@ async def list_notifications(
 
 
 @router.get("/unread-count", response_model=UnreadResult)
-async def unread_count(user: CurrentUser = Depends(get_current_user)) -> UnreadResult:
+async def unread_count(
+    user: CurrentUser = Depends(get_current_user),
+    settings: Settings = Depends(get_settings),
+) -> UnreadResult:
+    user = await _user_with_accessible_projects(
+        user,
+        settings,
+    )
     client = get_notifications_client()
     reg = get_registry()
     try:
@@ -77,32 +103,57 @@ async def unread_count(user: CurrentUser = Depends(get_current_user)) -> UnreadR
 
 @router.patch("/{notification_id}")
 async def mark_read(
-    notification_id: str, user: CurrentUser = Depends(get_current_user)
+    notification_id: str,
+    user: CurrentUser = Depends(get_current_user),
+    settings: Settings = Depends(get_settings),
 ) -> dict[str, str]:
-    await get_notifications_client().mark_read(user, notification_id)
-    return {"status": "ok"}
+    user = await _user_with_accessible_projects(
+        user,
+        settings,
+    )
 
+    await get_notifications_client().mark_read(
+        user,
+        notification_id,
+    )
+
+    return {"status": "ok"}
 
 @router.post("/read-all")
-async def mark_all_read(user: CurrentUser = Depends(get_current_user)) -> dict[str, str]:
+async def mark_all_read(
+    user: CurrentUser = Depends(get_current_user),
+    settings: Settings = Depends(get_settings),
+) -> dict[str, str]:
+    user = await _user_with_accessible_projects(
+        user,
+        settings,
+    )
+
     await get_notifications_client().mark_all_read(user)
+
     return {"status": "ok"}
-
-
 # WebSocket fora do prefixo /api para alinhar com o proxy do Vite (/ws).
 ws_router = APIRouter()
-
 
 @ws_router.websocket("/ws/notifications")
 async def notifications_ws(websocket: WebSocket) -> None:
     try:
         user = await ws_authenticate_message(websocket)
+
+        settings = get_settings()
+
+        user = await _user_with_accessible_projects(
+            user,
+            settings,
+        )
     except Exception:
-        await websocket.close(code=1008)  # policy violation
+        await websocket.close(code=1008)
         return
+
     client = get_notifications_client()
+
     await pump(
-    websocket,
-    lambda: client.ws_source(user),
-    accept=False,
-)
+        websocket,
+        lambda: client.ws_source(user),
+        accept=False,
+    )

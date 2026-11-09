@@ -8,7 +8,12 @@ from pydantic import BaseModel
 
 from app.clients import get_notifications_client
 from app.core.config import Settings, get_settings
-from app.domain.schemas import Notification, Priority, Source
+from app.domain.schemas import (
+    Notification,
+    NotificationScope,
+    Priority,
+    Source,
+)
 
 
 router = APIRouter(
@@ -19,7 +24,8 @@ router = APIRouter(
 
 class NotificationInput(BaseModel):
     event_id: str
-    project_id: str
+    scope: NotificationScope = NotificationScope.PROJECT
+    project_id: str | None = None
     source: Source
     type: str
     title: str
@@ -41,11 +47,21 @@ async def publish_notification(
             detail="Chave de integração inválida.",
         )
 
+    if data.scope == NotificationScope.PROJECT and not data.project_id:
+        raise HTTPException(
+            status_code=422,
+            detail="project_id é obrigatório para notificações de projeto.",
+        )
+
     notification = Notification(
-        
         id=str(uuid4()),
         event_id=data.event_id,
-        project_id=data.project_id,
+        scope=data.scope,
+        project_id=(
+            data.project_id
+            if data.scope == NotificationScope.PROJECT
+            else None
+        ),
         source=data.source,
         type=data.type,
         priority=data.priority,
@@ -60,4 +76,5 @@ async def publish_notification(
     )
 
     client = get_notifications_client()
+
     return await client.publish(notification)

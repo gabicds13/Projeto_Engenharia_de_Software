@@ -17,6 +17,10 @@ class Priority(str, Enum):
     MEDIUM = "medium"
     LOW = "low"
 
+class NotificationScope(str, Enum):
+    PROJECT = "project"
+    GLOBAL = "global"
+
 
 class Source(str, Enum):
     CODE_REVIEW = "code_review"
@@ -38,7 +42,8 @@ class Notification(BaseModel):
     relevance_score: float = Field(ge=0.0, le=1.0)
     reason: str
     classified_by: Literal["llm", "rules"]
-    project_id: str
+    scope: NotificationScope = NotificationScope.PROJECT
+    project_id: str | None = None
     title: str
     body: str
     link: str | None = None

@@ -80,16 +80,26 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
 
   const onMessage = useCallback((data: unknown) => {
     const msg = data as { event?: string; data?: Notification };
+
     if (msg.event === "notification.new" && msg.data) {
       const n = msg.data;
-      if (seen.current.has(n.id)) return;
-      seen.current.add(n.id);
-      setItems((prev) => [n, ...prev]);
-      setUnreadTotal((c) => c + 1);
-      setToasts((prev) => [n, ...prev].slice(0, 4));
+      const alreadySeen = seen.current.has(n.id);
+
+      if (!alreadySeen) {
+        seen.current.add(n.id);
+        setItems((prev) => [n, ...prev]);
+        setUnreadTotal((c) => c + 1);
+      }
+
+      setToasts((prev) => {
+        if (prev.some((toast) => toast.id === n.id)) {
+          return prev;
+        }
+
+        return [n, ...prev].slice(0, 4);
+      });
     }
   }, []);
-
   const token = user ? getToken() : null;
 
 const socketUrl =

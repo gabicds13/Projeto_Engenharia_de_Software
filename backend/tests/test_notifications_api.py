@@ -73,12 +73,26 @@ def test_unread_then_mark_all(client):
 
 
 def test_mark_single_read(client):
-    page = client.get("/api/bff/notifications", headers=_auth()).json()["page"]
-    first_id = page["items"][0]["id"]
-    assert client.patch(f"/api/bff/notifications/{first_id}", headers=_auth()).status_code == 200
-    after = client.get("/api/bff/notifications/unread-count", headers=_auth()).json()
-    assert after["count"]["total"] == 3
+    page = client.get(
+        "/api/bff/notifications",
+        headers=_auth(),
+    ).json()["page"]
 
+   
+
+    first_id = page["items"][0]["id"]
+
+    assert client.patch(
+        f"/api/bff/notifications/{first_id}",
+        headers=_auth(),
+    ).status_code == 200
+
+    after = client.get(
+        "/api/bff/notifications/unread-count",
+        headers=_auth(),
+    ).json()
+
+    assert after["count"]["total"] == 3
 
 def test_upstream_unavailable_returns_state(client, monkeypatch):
     class Broken:

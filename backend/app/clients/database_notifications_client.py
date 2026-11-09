@@ -4,7 +4,7 @@ import asyncio
 from datetime import datetime, timezone
 from typing import AsyncIterator
 
-from sqlalchemy import select, update
+from sqlalchemy import or_, select, update
 from sqlalchemy.exc import IntegrityError
 
 from app.core.database import get_session_factory
@@ -23,6 +23,7 @@ def _to_notification(row: NotificationModel) -> Notification:
     return Notification(
         id=row.id,
         event_id=row.event_id,
+        scope=row.scope,
         project_id=row.project_id,
         source=Source(row.source),
         type=row.type,
@@ -59,6 +60,7 @@ class DatabaseNotificationsClient:
             row = NotificationModel(
                 id=notification.id,
                 event_id=notification.event_id,
+                scope=notification.scope.value,
                 project_id=notification.project_id,
                 source=notification.source.value,
                 type=notification.type,
@@ -107,7 +109,12 @@ class DatabaseNotificationsClient:
         session_factory = get_session_factory()
 
         with session_factory() as db:
-            statement = select(NotificationModel)
+            statement = select(NotificationModel).where(
+                or_(
+                    NotificationModel.scope == "global",
+                    NotificationModel.project_id.in_(user.project_ids),
+                )
+            )
 
             if priority is not None:
                 statement = statement.where(
@@ -149,11 +156,14 @@ class DatabaseNotificationsClient:
 
         with session_factory() as db:
             rows = db.scalars(
-                select(NotificationModel).where(
-                    NotificationModel.read_at.is_(None)
-                )
-            ).all()
-
+            select(NotificationModel).where(
+                or_(
+                  NotificationModel.scope == "global",
+                  NotificationModel.project_id.in_(user.project_ids),
+                ),
+                NotificationModel.read_at.is_(None),
+            )
+        ).all()
         result = UnreadCount(total=len(rows))
 
         for row in rows:
@@ -174,7 +184,15 @@ class DatabaseNotificationsClient:
         session_factory = get_session_factory()
 
         with session_factory() as db:
-            row = db.get(NotificationModel, notif_id)
+            row = db.scalar(
+             select(NotificationModel).where(
+              NotificationModel.id == notif_id,
+                or_(
+                   NotificationModel.scope == "global",
+                   NotificationModel.project_id.in_(user.project_ids),
+                ),
+             )
+            )
 
             if row is not None and row.read_at is None:
                 row.read_at = datetime.now(timezone.utc)
@@ -189,35 +207,48 @@ class DatabaseNotificationsClient:
         with session_factory() as db:
             db.execute(
                 update(NotificationModel)
-                .where(NotificationModel.read_at.is_(None))
-                .values(read_at=datetime.now(timezone.utc))
+                .where(
+                    or_(
+                       NotificationModel.scope == "global",
+                        NotificationModel.project_id.in_(user.project_ids),
+                    ),
+                    NotificationModel.read_at.is_(None),
+                )
             )
             db.commit()
+async def ws_source(
+    self,
+    user: CurrentUser,
+) -> AsyncIterator[dict]:
+    last_check = datetime.now(timezone.utc)
+    session_factory = get_session_factory()
 
-    async def ws_source(
-        self,
-        user: CurrentUser,
-    ) -> AsyncIterator[dict]:
-        last_check = datetime.now(timezone.utc)
-        session_factory = get_session_factory()
+    while True:
+        await asyncio.sleep(2)
 
-        while True:
-            await asyncio.sleep(2)
+        with session_factory() as db:
+            rows = db.scalars(
+                select(NotificationModel)
+                .where(
+                    or_(
+                        NotificationModel.scope == "global",
+                        NotificationModel.project_id.in_(user.project_ids),
+                    ),
+                    NotificationModel.created_at > last_check,
+                )
+                .order_by(NotificationModel.created_at.asc())
+            ).all()
 
-            with session_factory() as db:
-                rows = db.scalars(
-                    select(NotificationModel)
-                    .where(NotificationModel.created_at > last_check)
-                    .order_by(NotificationModel.created_at.asc())
-                ).all()
+        if rows:
+            last_check = max(
+                row.created_at
+                for row in rows
+            )
 
-            if rows:
-                last_check = max(row.created_at for row in rows)
+        for row in rows:
+            notification = _to_notification(row)
 
-            for row in rows:
-                notification = _to_notification(row)
-
-                yield {
-                    "event": "notification.new",
-                    "data": notification.model_dump(mode="json"),
-                }
+            yield {
+                "event": "notification.new",
+                "data": notification.model_dump(mode="json"),
+            }
