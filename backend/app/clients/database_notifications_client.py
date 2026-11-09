@@ -216,39 +216,39 @@ class DatabaseNotificationsClient:
                 )
             )
             db.commit()
-async def ws_source(
-    self,
-    user: CurrentUser,
-) -> AsyncIterator[dict]:
-    last_check = datetime.now(timezone.utc)
-    session_factory = get_session_factory()
+    async def ws_source(
+        self,
+        user: CurrentUser,
+    ) -> AsyncIterator[dict]:
+        last_check = datetime.now(timezone.utc)
+        session_factory = get_session_factory()
 
-    while True:
-        await asyncio.sleep(2)
+        while True:
+            await asyncio.sleep(2)
 
-        with session_factory() as db:
-            rows = db.scalars(
-                select(NotificationModel)
-                .where(
-                    or_(
-                        NotificationModel.scope == "global",
-                        NotificationModel.project_id.in_(user.project_ids),
-                    ),
-                    NotificationModel.created_at > last_check,
+            with session_factory() as db:
+                rows = db.scalars(
+                    select(NotificationModel)
+                    .where(
+                        or_(
+                            NotificationModel.scope == "global",
+                            NotificationModel.project_id.in_(user.project_ids),
+                        ),
+                        NotificationModel.created_at > last_check,
+                    )
+                    .order_by(NotificationModel.created_at.asc())
+                ).all()
+
+            if rows:
+                last_check = max(
+                    row.created_at
+                    for row in rows
                 )
-                .order_by(NotificationModel.created_at.asc())
-            ).all()
 
-        if rows:
-            last_check = max(
-                row.created_at
-                for row in rows
-            )
+            for row in rows:
+                notification = _to_notification(row)
 
-        for row in rows:
-            notification = _to_notification(row)
-
-            yield {
-                "event": "notification.new",
-                "data": notification.model_dump(mode="json"),
-            }
+                yield {
+                    "event": "notification.new",
+                    "data": notification.model_dump(mode="json"),
+                }

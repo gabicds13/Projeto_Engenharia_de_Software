@@ -39,26 +39,64 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
   const [available, setAvailable] = useState(true);
   const [toasts, setToasts] = useState<Notification[]>([]);
   const seen = useRef<Set<string>>(new Set());
+  const hydrated = useRef(false);
 
-  const refresh = useCallback(async () => {
-    if (!user) return;
-    try {
-      const list = await api.get<ListResult>("/api/bff/notifications");
-      if (list.state === "unavailable" || !list.page) {
+  const refresh = useCallback(
+    async (showRecoveredToasts = false) => {
+      if (!user) return;
+
+      try {
+        const list = await api.get<ListResult>("/api/bff/notifications");
+
+        if (list.state === "unavailable" || !list.page) {
+          setAvailable(false);
+          return;
+        }
+
+        const unseenItems = list.page.items.filter(
+          (notification) => !seen.current.has(notification.id),
+        );
+
+        setAvailable(true);
+        setItems(list.page.items);
+
+        list.page.items.forEach((notification) => {
+          seen.current.add(notification.id);
+        });
+
+        if (
+          showRecoveredToasts &&
+          hydrated.current &&
+          unseenItems.length > 0
+        ) {
+          setToasts((previousToasts) => {
+            const toastIds = new Set(
+              previousToasts.map((toast) => toast.id),
+            );
+
+            const recoveredToasts = unseenItems.filter(
+              (notification) => !toastIds.has(notification.id),
+            );
+
+            return [...recoveredToasts, ...previousToasts].slice(0, 4);
+          });
+        }
+
+        const unread = await api.get<UnreadResult>(
+          "/api/bff/notifications/unread-count",
+        );
+
+        setUnreadTotal(
+          unread.state === "ok" ? unread.count?.total ?? 0 : 0,
+        );
+
+        hydrated.current = true;
+      } catch {
         setAvailable(false);
-        return;
       }
-      setAvailable(true);
-      setItems(list.page.items);
-      list.page.items.forEach((n) => seen.current.add(n.id));
-      const unread = await api.get<UnreadResult>(
-        "/api/bff/notifications/unread-count",
-      );
-      setUnreadTotal(unread.state === "ok" ? unread.count?.total ?? 0 : 0);
-    } catch {
-      setAvailable(false);
-    }
-  }, [user]);
+    },
+    [user],
+  );
 
   const markRead = useCallback(
     async (id: string) => {
