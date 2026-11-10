@@ -39,6 +39,7 @@ class Settings(BaseSettings):
     integration_api_key: str = "dev-integration-key"
     database_url: str | None = None
     use_notifications_db: bool = False
+    use_chat_db: bool = False
 
 
     # Integração real com o Módulo 1

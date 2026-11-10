@@ -6,14 +6,76 @@ import { api, ApiError, getToken } from "../../lib/apiClient";
 import { wsUrl } from "../../lib/config";
 import type { ChatHistoryResult, ChatMessage } from "../../lib/types";
 
+interface Project {
+  id?: string;
+  project_id?: string;
+  name?: string;
+}
+
+interface ProjectResponse {
+  items?: Project[];
+  projects?: Project[];
+}
+
+function normalizeProjects(
+  response: Project[] | ProjectResponse,
+): Project[] {
+  if (Array.isArray(response)) {
+    return response;
+  }
+
+  if (Array.isArray(response.items)) {
+    return response.items;
+  }
+
+  if (Array.isArray(response.projects)) {
+    return response.projects;
+  }
+
+  return [];
+}
+
+function getProjectId(project: Project): string {
+  return project.project_id ?? project.id ?? "";
+}
+
 export function ChatPage() {
   const { user } = useAuth();
-  const projectId = user?.project_ids[0] ?? "";
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [projectId, setProjectId] = useState("");
+  const [projectsLoading, setProjectsLoading] = useState(true);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [available, setAvailable] = useState(true);
   const [text, setText] = useState("");
   const seen = useRef<Set<string>>(new Set());
   const bottomRef = useRef<HTMLDivElement>(null);
+
+
+  useEffect(() => {
+    const loadProjects = async () => {
+      setProjectsLoading(true);
+
+      try {
+        const response = await api.get<Project[] | ProjectResponse>(
+          "/api/bff/projects",
+        );
+
+        const list = normalizeProjects(response);
+
+        setProjects(list);
+
+        if (list.length > 0) {
+          setProjectId(getProjectId(list[0]));
+        }
+      } catch {
+        setProjects([]);
+      } finally {
+        setProjectsLoading(false);
+      }
+    };
+
+    void loadProjects();
+  }, []);
 
   const loadHistory = useCallback(async () => {
     if (!projectId) return;
@@ -84,12 +146,49 @@ export function ChatPage() {
     }
   };
 
+
+  if (projectsLoading) {
+    return <p className="text-text-muted">Carregando projetos…</p>;
+  }
+
+  if (!projectId) {
+    return (
+      <p className="rounded-lg border border-border bg-surface p-6 text-text-muted">
+        Nenhum projeto disponível para este usuário.
+      </p>
+    );
+  }
   if (!available) return <UnavailableState label="Chat" />;
 
   return (
     <section className="flex h-[70vh] flex-col rounded-lg border border-border bg-surface">
       <header className="flex items-center justify-between border-b border-border px-4 py-3">
-        <h1 className="text-lg font-semibold text-text">Chat · {projectId}</h1>
+      <div className="flex items-center gap-3">
+      <div>
+  <h1 className="text-lg font-semibold text-text">Chat</h1>
+  <p className="text-xs text-text-muted"># Geral</p>
+</div>
+
+  <select
+    value={projectId}
+    onChange={(event) => {
+      seen.current.clear();
+      setMessages([]);
+      setProjectId(event.target.value);
+    }}
+    className="rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text"
+  >
+    {projects.map((project) => {
+      const id = getProjectId(project);
+
+      return (
+        <option key={id} value={id}>
+          {project.name ?? id}
+        </option>
+      );
+    })}
+  </select>
+</div>
         <span
           className={`h-2 w-2 rounded-full ${status === "open" ? "bg-success" : "bg-priority-low"}`}
           title={status === "open" ? "Conectado" : "Reconectando…"}
