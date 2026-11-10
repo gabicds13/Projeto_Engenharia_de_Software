@@ -78,12 +78,18 @@ def test_empty_message_rejected(client):
     )
     assert r.status_code == 422
 
-
 def test_ws_rejects_project_outside_token(client):
     from starlette.websockets import WebSocketDisconnect
 
-    with pytest.raises(WebSocketDisconnect):
-        with client.websocket_connect(
-            f"/ws/chat?project_id=proj-999&token={_token(('proj-123',))}"
-        ):
-            pass
+    with client.websocket_connect(
+        "/ws/chat?project_id=proj-999"
+    ) as ws:
+        ws.send_json(
+            {
+                "type": "auth",
+                "token": _token(("proj-123",)),
+            }
+        )
+
+        with pytest.raises(WebSocketDisconnect):
+            ws.receive_json()

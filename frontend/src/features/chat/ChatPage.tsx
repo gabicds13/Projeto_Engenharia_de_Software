@@ -43,11 +43,19 @@ export function ChatPage() {
     }
   }, []);
 
+  const token = getToken();
+
   const socketUrl =
-    projectId && getToken()
-      ? wsUrl(`/ws/chat?project_id=${encodeURIComponent(projectId)}&token=${getToken()}`)
-      : null;
-  const status = useWebSocket(socketUrl, { onMessage, onReconnect: loadHistory, enabled: !!projectId });
+   projectId && token
+    ? wsUrl(`/ws/chat?project_id=${encodeURIComponent(projectId)}`)
+    : null;
+
+  const status = useWebSocket(socketUrl, {
+   onMessage,
+   onReconnect: loadHistory,
+   enabled: !!projectId,
+   authToken: token ?? undefined,
+  });
 
   useEffect(() => {
     void loadHistory();
