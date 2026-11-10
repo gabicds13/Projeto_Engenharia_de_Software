@@ -4,7 +4,7 @@ import asyncio
 from datetime import datetime, timezone
 from typing import AsyncIterator
 
-from sqlalchemy import or_, select, update
+from sqlalchemy import or_, select
 from sqlalchemy.exc import IntegrityError
 
 from app.core.database import get_session_factory
@@ -297,3 +297,40 @@ class DatabaseNotificationsClient:
                 )
 
             db.commit()
+
+    async def ws_source(
+        self,
+        user: CurrentUser,
+    ) -> AsyncIterator[dict]:
+        last_check = datetime.now(timezone.utc)
+        session_factory = get_session_factory()
+
+        while True:
+            await asyncio.sleep(2)
+
+            with session_factory() as db:
+                rows = db.scalars(
+                    select(NotificationModel)
+                    .where(
+                        or_(
+                            NotificationModel.scope == "global",
+                            NotificationModel.project_id.in_(user.project_ids),
+                        ),
+                        NotificationModel.created_at > last_check,
+                    )
+                    .order_by(NotificationModel.created_at.asc())
+                ).all()
+
+            if rows:
+                last_check = max(
+                    row.created_at
+                    for row in rows
+                )
+
+            for row in rows:
+                notification = _to_notification(row)
+
+                yield {
+                    "event": "notification.new",
+                    "data": notification.model_dump(mode="json"),
+                }
