@@ -17,9 +17,12 @@ from app.domain.schemas import (
     UnreadCount,
 )
 from app.models.notification import NotificationModel
+from app.models.notification_read import NotificationReadModel
 
-
-def _to_notification(row: NotificationModel) -> Notification:
+def _to_notification(
+    row: NotificationModel,
+    read_at: datetime | None = None,
+) -> Notification:
     return Notification(
         id=row.id,
         event_id=row.event_id,
@@ -35,9 +38,8 @@ def _to_notification(row: NotificationModel) -> Notification:
         body=row.body,
         link=row.link,
         created_at=row.created_at,
-        read_at=row.read_at,
+        read_at=read_at,
     )
-
 
 class DatabaseNotificationsClient:
     async def publish(
@@ -95,7 +97,6 @@ class DatabaseNotificationsClient:
                 raise
 
         return notification
-
     async def list(
         self,
         user: CurrentUser,
@@ -109,10 +110,27 @@ class DatabaseNotificationsClient:
         session_factory = get_session_factory()
 
         with session_factory() as db:
-            statement = select(NotificationModel).where(
-                or_(
-                    NotificationModel.scope == "global",
-                    NotificationModel.project_id.in_(user.project_ids),
+            statement = (
+                select(
+                    NotificationModel,
+                    NotificationReadModel.read_at,
+                )
+                .outerjoin(
+                    NotificationReadModel,
+                    (
+                        NotificationReadModel.notification_id
+                        == NotificationModel.id
+                    )
+                    & (
+                        NotificationReadModel.user_id
+                        == user.user_id
+                    ),
+                )
+                .where(
+                    or_(
+                        NotificationModel.scope == "global",
+                        NotificationModel.project_id.in_(user.project_ids),
+                    )
                 )
             )
 
@@ -128,11 +146,11 @@ class DatabaseNotificationsClient:
 
             if status == "unread":
                 statement = statement.where(
-                    NotificationModel.read_at.is_(None)
+                    NotificationReadModel.read_at.is_(None)
                 )
             elif status == "read":
                 statement = statement.where(
-                    NotificationModel.read_at.is_not(None)
+                    NotificationReadModel.read_at.is_not(None)
                 )
 
             statement = (
@@ -141,10 +159,13 @@ class DatabaseNotificationsClient:
                 .limit(limit)
             )
 
-            rows = db.scalars(statement).all()
+            rows = db.execute(statement).all()
 
         return NotificationPage(
-            items=[_to_notification(row) for row in rows],
+            items=[
+                _to_notification(row, read_at)
+                for row, read_at in rows
+            ],
             next_cursor=None,
         )
 
@@ -155,19 +176,36 @@ class DatabaseNotificationsClient:
         session_factory = get_session_factory()
 
         with session_factory() as db:
-            rows = db.scalars(
-            select(NotificationModel).where(
-                or_(
-                  NotificationModel.scope == "global",
-                  NotificationModel.project_id.in_(user.project_ids),
-                ),
-                NotificationModel.read_at.is_(None),
-            )
-        ).all()
+            rows = db.execute(
+                select(
+                    NotificationModel,
+                    NotificationReadModel.read_at,
+                )
+                .outerjoin(
+                    NotificationReadModel,
+                    (
+                        NotificationReadModel.notification_id
+                        == NotificationModel.id
+                    )
+                    & (
+                        NotificationReadModel.user_id
+                        == user.user_id
+                    ),
+                )
+                .where(
+                    or_(
+                        NotificationModel.scope == "global",
+                        NotificationModel.project_id.in_(user.project_ids),
+                    ),
+                    NotificationReadModel.read_at.is_(None),
+                )
+            ).all()
+
         result = UnreadCount(total=len(rows))
 
-        for row in rows:
+        for row, _read_at in rows:
             priority = Priority(row.priority)
+
             setattr(
                 result,
                 priority.value,
@@ -184,20 +222,36 @@ class DatabaseNotificationsClient:
         session_factory = get_session_factory()
 
         with session_factory() as db:
-            row = db.scalar(
-             select(NotificationModel).where(
-              NotificationModel.id == notif_id,
-                or_(
-                   NotificationModel.scope == "global",
-                   NotificationModel.project_id.in_(user.project_ids),
-                ),
-             )
+            notification = db.scalar(
+                select(NotificationModel).where(
+                    NotificationModel.id == notif_id,
+                    or_(
+                        NotificationModel.scope == "global",
+                        NotificationModel.project_id.in_(user.project_ids),
+                    ),
+                )
             )
 
-            if row is not None and row.read_at is None:
-                row.read_at = datetime.now(timezone.utc)
-                db.commit()
+            if notification is None:
+                return
 
+            existing_read = db.get(
+                NotificationReadModel,
+                (notif_id, user.user_id),
+            )
+
+            if existing_read is not None:
+                return
+
+            db.add(
+                NotificationReadModel(
+                    notification_id=notif_id,
+                    user_id=user.user_id,
+                    read_at=datetime.now(timezone.utc),
+                )
+            )
+
+            db.commit()
     async def mark_all_read(
         self,
         user: CurrentUser,
@@ -205,50 +259,41 @@ class DatabaseNotificationsClient:
         session_factory = get_session_factory()
 
         with session_factory() as db:
-            db.execute(
-                update(NotificationModel)
-                .where(
+            notification_ids = db.scalars(
+                select(NotificationModel.id).where(
                     or_(
-                       NotificationModel.scope == "global",
+                        NotificationModel.scope == "global",
                         NotificationModel.project_id.in_(user.project_ids),
-                    ),
-                    NotificationModel.read_at.is_(None),
-                )
-            )
-            db.commit()
-    async def ws_source(
-        self,
-        user: CurrentUser,
-    ) -> AsyncIterator[dict]:
-        last_check = datetime.now(timezone.utc)
-        session_factory = get_session_factory()
-
-        while True:
-            await asyncio.sleep(2)
-
-            with session_factory() as db:
-                rows = db.scalars(
-                    select(NotificationModel)
-                    .where(
-                        or_(
-                            NotificationModel.scope == "global",
-                            NotificationModel.project_id.in_(user.project_ids),
-                        ),
-                        NotificationModel.created_at > last_check,
                     )
-                    .order_by(NotificationModel.created_at.asc())
-                ).all()
+                )
+            ).all()
 
-            if rows:
-                last_check = max(
-                    row.created_at
-                    for row in rows
+            if not notification_ids:
+                return
+
+            existing_reads = set(
+                db.scalars(
+                    select(NotificationReadModel.notification_id).where(
+                        NotificationReadModel.user_id == user.user_id,
+                        NotificationReadModel.notification_id.in_(
+                            notification_ids
+                        ),
+                    )
+                ).all()
+            )
+
+            read_at = datetime.now(timezone.utc)
+
+            for notification_id in notification_ids:
+                if notification_id in existing_reads:
+                    continue
+
+                db.add(
+                    NotificationReadModel(
+                        notification_id=notification_id,
+                        user_id=user.user_id,
+                        read_at=read_at,
+                    )
                 )
 
-            for row in rows:
-                notification = _to_notification(row)
-
-                yield {
-                    "event": "notification.new",
-                    "data": notification.model_dump(mode="json"),
-                }
+            db.commit()

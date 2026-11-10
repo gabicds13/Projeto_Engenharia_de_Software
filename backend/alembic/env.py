@@ -12,6 +12,7 @@ config = context.config
 from app.core.config import get_settings
 from app.core.database import Base
 from app.models.notification import NotificationModel
+from app.models.notification_read import NotificationReadModel
 
 settings = get_settings()
 
