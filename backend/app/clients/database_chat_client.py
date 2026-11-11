@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from typing import AsyncIterator
 from uuid import uuid4
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 
 from app.core.database import get_session_factory
@@ -13,6 +13,7 @@ from app.core.security import CurrentUser
 from app.domain.schemas import ChatMessage
 from app.models.chat_channel import ChatChannelModel
 from app.models.chat_message import ChatMessageModel
+from app.models.chat_channel_read import ChatChannelReadModel
 
 
 def _to_chat_message(row: ChatMessageModel) -> ChatMessage:
@@ -128,6 +129,89 @@ class DatabaseChatClient:
             db.commit()
 
         return _to_chat_message(row)
+
+    async def unread_count(
+        self,
+        user: CurrentUser,
+        project_id: str,
+    ) -> int:
+        session_factory = get_session_factory()
+
+        with session_factory() as db:
+            channel = _get_or_create_project_channel(
+                db,
+                project_id,
+            )
+
+            receipt = db.get(
+                ChatChannelReadModel,
+                {
+                    "channel_id": channel.id,
+                    "user_id": user.user_id,
+                },
+            )
+
+            query = select(
+                func.count(ChatMessageModel.id)
+            ).where(
+                ChatMessageModel.channel_id == channel.id,
+                ChatMessageModel.author_id != user.user_id,
+            )
+
+            if receipt is not None:
+                query = query.where(
+                    ChatMessageModel.created_at
+                    > receipt.last_read_at
+                )
+
+            return int(db.scalar(query) or 0)
+
+    async def mark_read(
+        self,
+        user: CurrentUser,
+        project_id: str,
+    ) -> None:
+        session_factory = get_session_factory()
+
+        with session_factory() as db:
+            channel = _get_or_create_project_channel(
+                db,
+                project_id,
+            )
+
+            latest_message_at = db.scalar(
+                select(ChatMessageModel.created_at)
+                .where(
+                    ChatMessageModel.channel_id == channel.id,
+                )
+                .order_by(ChatMessageModel.created_at.desc())
+                .limit(1)
+            )
+
+            read_at = (
+                latest_message_at
+                or datetime.now(timezone.utc)
+            )
+
+            receipt = db.get(
+                ChatChannelReadModel,
+                {
+                    "channel_id": channel.id,
+                    "user_id": user.user_id,
+                },
+            )
+
+            if receipt is None:
+                receipt = ChatChannelReadModel(
+                    channel_id=channel.id,
+                    user_id=user.user_id,
+                    last_read_at=read_at,
+                )
+                db.add(receipt)
+            else:
+                receipt.last_read_at = read_at
+
+            db.commit()
 
     async def ws_source(
         self,

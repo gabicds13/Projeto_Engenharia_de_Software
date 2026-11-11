@@ -17,6 +17,17 @@ from app.domain.schemas import ChatMessage
 class ChatClient(Protocol):
     async def history(self, user: CurrentUser, project_id: str, *, limit: int) -> list[ChatMessage]: ...
     async def post(self, user: CurrentUser, project_id: str, text: str) -> ChatMessage: ...
+    async def unread_count(
+        self,
+        user: CurrentUser,
+        project_id: str,
+    ) -> int: ...
+
+    async def mark_read(
+        self,
+        user: CurrentUser,
+        project_id: str,
+    ) -> None: ...
     def ws_source(self, user: CurrentUser, project_id: str) -> AsyncIterator[dict]: ...
 
 
@@ -64,6 +75,20 @@ class MockChatClient:
             q.put_nowait({"event": "chat.message", "data": msg.model_dump(mode="json")})
         return msg
 
+    async def unread_count(
+        self,
+        user: CurrentUser,
+        project_id: str,
+    ) -> int:
+        return 0
+
+    async def mark_read(
+        self,
+        user: CurrentUser,
+        project_id: str,
+    ) -> None:
+        return None
+
     async def ws_source(self, user: CurrentUser, project_id: str) -> AsyncIterator[dict]:
         q: asyncio.Queue = asyncio.Queue()
         self._listeners[project_id].append(q)
@@ -100,7 +125,19 @@ class HttpChatClient:
                 )
             )
             return ChatMessage.model_validate(r.json())
+    async def unread_count(
+        self,
+        user: CurrentUser,
+        project_id: str,
+    ) -> int:
+        return 0
 
+    async def mark_read(
+        self,
+        user: CurrentUser,
+        project_id: str,
+    ) -> None:
+        return None
     async def ws_source(self, user: CurrentUser, project_id: str) -> AsyncIterator[dict]:  # pragma: no cover
         url = self._base_url.replace("http", "ws", 1) + f"/ws/chat?project_id={project_id}"
         async with httpx.AsyncClient() as c:

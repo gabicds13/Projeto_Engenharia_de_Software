@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from fastapi import APIRouter, Depends, WebSocket
+from fastapi import APIRouter, Depends, Response, WebSocket
 from pydantic import BaseModel, Field
 
 from app.clients import get_chat_client
@@ -34,6 +34,10 @@ class HistoryResult(BaseModel):
 
 class PostMessageIn(BaseModel):
     content: str = Field(min_length=1, max_length=4000)
+
+class UnreadResult(BaseModel):
+    project_id: str
+    unread: int
 
 async def _require_project(
     user: CurrentUser,
@@ -65,6 +69,41 @@ async def history(
         state="ok", stale=result.stale, project_id=project_id, messages=result.value
     )
 
+@router.get(
+    "/rooms/{project_id}/unread",
+    response_model=UnreadResult,
+)
+async def unread_count(
+    project_id: str,
+    user: CurrentUser = Depends(get_current_user),
+) -> UnreadResult:
+    await _require_project(user, project_id)
+
+    unread = await get_chat_client().unread_count(
+        user,
+        project_id,
+    )
+
+    return UnreadResult(
+        project_id=project_id,
+        unread=unread,
+    )
+@router.post(
+    "/rooms/{project_id}/read",
+    status_code=204,
+)
+async def mark_read(
+    project_id: str,
+    user: CurrentUser = Depends(get_current_user),
+) -> Response:
+    await _require_project(user, project_id)
+
+    await get_chat_client().mark_read(
+        user,
+        project_id,
+    )
+
+    return Response(status_code=204)
 
 @router.post("/rooms/{project_id}/messages", response_model=ChatMessage)
 async def post_message(

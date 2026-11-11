@@ -45,6 +45,7 @@ export function ChatPage() {
   const [projectId, setProjectId] = useState("");
   const [projectsLoading, setProjectsLoading] = useState(true);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [unread, setUnread] = useState(0);
   const [available, setAvailable] = useState(true);
   const [text, setText] = useState("");
   const seen = useRef<Set<string>>(new Set());
@@ -76,6 +77,41 @@ export function ChatPage() {
 
     void loadProjects();
   }, []);
+  const loadUnread = useCallback(async () => {
+    if (!projectId) {
+      setUnread(0);
+      return;
+    }
+
+    try {
+      const response = await api.get<{
+        project_id: string;
+        unread: number;
+      }>(
+        `/api/bff/chat/rooms/${encodeURIComponent(projectId)}/unread`,
+      );
+
+      setUnread(response.unread);
+    } catch {
+      setUnread(0);
+    }
+  }, [projectId]);
+
+  const markRead = useCallback(async () => {
+    if (!projectId) {
+      return;
+    }
+
+    try {
+      await api.post<void>(
+        `/api/bff/chat/rooms/${encodeURIComponent(projectId)}/read`,
+      );
+
+      setUnread(0);
+    } catch {
+      // Se falhar, o chat continua funcionando normalmente.
+    }
+  }, [projectId]);
 
   const loadHistory = useCallback(async () => {
     if (!projectId) return;
@@ -102,26 +138,36 @@ export function ChatPage() {
       if (seen.current.has(m.id)) return;
       seen.current.add(m.id);
       setMessages((prev) => [...prev, m]);
+      void markRead();
     }
-  }, []);
+  }, [markRead]);
 
   const token = getToken();
 
   const socketUrl =
-   projectId && token
-    ? wsUrl(`/ws/chat?project_id=${encodeURIComponent(projectId)}`)
-    : null;
+    projectId && token
+      ? wsUrl(`/ws/chat?project_id=${encodeURIComponent(projectId)}`)
+      : null;
 
   const status = useWebSocket(socketUrl, {
-   onMessage,
-   onReconnect: loadHistory,
-   enabled: !!projectId,
-   authToken: token ?? undefined,
+    onMessage,
+    onReconnect: loadHistory,
+    enabled: !!projectId,
+    authToken: token ?? undefined,
   });
 
   useEffect(() => {
     void loadHistory();
   }, [loadHistory]);
+
+  useEffect(() => {
+    if (!projectId) {
+      return;
+    }
+
+    void loadUnread();
+    void markRead();
+  }, [projectId, loadUnread, markRead]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -163,32 +209,40 @@ export function ChatPage() {
   return (
     <section className="flex h-[70vh] flex-col rounded-lg border border-border bg-surface">
       <header className="flex items-center justify-between border-b border-border px-4 py-3">
-      <div className="flex items-center gap-3">
-      <div>
-  <h1 className="text-lg font-semibold text-text">Chat</h1>
-  <p className="text-xs text-text-muted"># Geral</p>
-</div>
+        <div className="flex items-center gap-3">
+          <div>
+            <h1 className="text-lg font-semibold text-text">Chat</h1>
+            <div className="flex items-center gap-2">
+            <p className="text-xs text-text-muted"># Geral</p>
 
-  <select
-    value={projectId}
-    onChange={(event) => {
-      seen.current.clear();
-      setMessages([]);
-      setProjectId(event.target.value);
-    }}
-    className="rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text"
-  >
-    {projects.map((project) => {
-      const id = getProjectId(project);
-
-      return (
-        <option key={id} value={id}>
-          {project.name ?? id}
-        </option>
-      );
-    })}
-  </select>
+  {unread > 0 && (
+    <span className="rounded-full bg-primary px-2 py-0.5 text-xs font-semibold text-white">
+      {unread}
+    </span>
+  )}
 </div>
+          </div>
+
+          <select
+            value={projectId}
+            onChange={(event) => {
+              seen.current.clear();
+              setMessages([]);
+              setProjectId(event.target.value);
+            }}
+            className="rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text"
+          >
+            {projects.map((project) => {
+              const id = getProjectId(project);
+
+              return (
+                <option key={id} value={id}>
+                  {project.name ?? id}
+                </option>
+              );
+            })}
+          </select>
+        </div>
         <span
           className={`h-2 w-2 rounded-full ${status === "open" ? "bg-success" : "bg-priority-low"}`}
           title={status === "open" ? "Conectado" : "Reconectando…"}
@@ -230,9 +284,8 @@ function MessageBubble({ message, mine }: { message: ChatMessage; mine: boolean 
   return (
     <div className={`flex flex-col ${mine ? "items-end" : "items-start"}`}>
       <div
-        className={`max-w-[80%] rounded-lg px-3 py-2 text-sm ${
-          mine ? "bg-primary text-white" : "border border-border bg-bg text-text"
-        }`}
+        className={`max-w-[80%] rounded-lg px-3 py-2 text-sm ${mine ? "bg-primary text-white" : "border border-border bg-bg text-text"
+          }`}
       >
         {!mine && <p className="text-xs font-semibold text-text-muted">{message.author_id}</p>}
         <p>{message.content}</p>

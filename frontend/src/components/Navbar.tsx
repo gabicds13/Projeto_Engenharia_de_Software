@@ -5,7 +5,13 @@ import { useTheme } from "../theme/ThemeProvider";
 const linkBase =
   "px-3 py-2 rounded-md text-md font-medium transition-colors";
 
-export function Navbar({ unreadBadge }: { unreadBadge?: number }) {
+  export function Navbar({
+    unreadBadge,
+    chatUnreadBadge,
+  }: {
+    unreadBadge?: number;
+    chatUnreadBadge?: number;
+  }) {
   const { user, logout } = useAuth();
   const { theme, toggle } = useTheme();
 
@@ -20,7 +26,11 @@ export function Navbar({ unreadBadge }: { unreadBadge?: number }) {
           <div className="flex gap-1">
             <TabLink to="/dashboard" label="Dashboard" />
             <TabLink to="/notificacoes" label="Notificações" badge={unreadBadge} />
-            <TabLink to="/chat" label="Chat" />
+            <TabLink
+             to="/chat"
+            label="Chat"
+             badge={chatUnreadBadge}
+            />
           </div>
         </div>
 
