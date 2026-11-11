@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime, timezone
-from typing import AsyncIterator
+from collections.abc import AsyncIterator
+from datetime import UTC, datetime
 from uuid import uuid4
 
 from sqlalchemy import func, select
@@ -12,8 +12,8 @@ from app.core.database import get_session_factory
 from app.core.security import CurrentUser
 from app.domain.schemas import ChatMessage
 from app.models.chat_channel import ChatChannelModel
-from app.models.chat_message import ChatMessageModel
 from app.models.chat_channel_read import ChatChannelReadModel
+from app.models.chat_message import ChatMessageModel
 
 
 def _to_chat_message(row: ChatMessageModel) -> ChatMessage:
@@ -46,7 +46,7 @@ def _get_or_create_project_channel(
         project_id=project_id,
         type="project",
         name="Geral",
-        created_at=datetime.now(timezone.utc),
+        created_at=datetime.now(UTC),
     )
 
     db.add(channel)
@@ -122,7 +122,7 @@ class DatabaseChatClient:
                 project_id=project_id,
                 author_id=user.user_id,
                 content=text,
-                created_at=datetime.now(timezone.utc),
+                created_at=datetime.now(UTC),
             )
 
             db.add(row)
@@ -190,7 +190,7 @@ class DatabaseChatClient:
 
             read_at = (
                 latest_message_at
-                or datetime.now(timezone.utc)
+                or datetime.now(UTC)
             )
 
             receipt = db.get(
@@ -218,7 +218,7 @@ class DatabaseChatClient:
         user: CurrentUser,
         project_id: str,
     ) -> AsyncIterator[dict]:
-        last_check = datetime.now(timezone.utc)
+        last_check = datetime.now(UTC)
         session_factory = get_session_factory()
 
         while True:

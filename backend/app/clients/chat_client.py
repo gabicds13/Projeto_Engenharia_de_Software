@@ -4,8 +4,9 @@ from __future__ import annotations
 import asyncio
 import itertools
 from collections import defaultdict
-from datetime import datetime, timedelta, timezone
-from typing import AsyncIterator, Protocol
+from collections.abc import AsyncIterator
+from datetime import UTC, datetime, timedelta
+from typing import Protocol
 
 import httpx
 
@@ -41,7 +42,7 @@ class MockChatClient:
         self._seed()
 
     def _seed(self) -> None:
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         seed = [
             ("user-gabi", "Pessoal, subi o esqueleto do dashboard."),
             ("user-heloisa", "Boa! Já consigo consumir as notificações mockadas."),
@@ -68,7 +69,7 @@ class MockChatClient:
             project_id=project_id,
             author_id=user.user_id,
             content=text,
-            created_at=datetime.now(timezone.utc),
+            created_at=datetime.now(UTC),
         )
         self._messages[project_id].append(msg)
         for q in self._listeners[project_id]:
@@ -113,7 +114,7 @@ class HttpChatClient:
             )
             try:
                 return [ChatMessage.model_validate(m) for m in r.json().get("messages", [])]
-            except Exception as exc:  # noqa: BLE001
+            except Exception as exc:
                 raise UpstreamError(f"resposta inválida do chat: {exc}") from exc
 
     async def post(self, user: CurrentUser, project_id: str, text: str) -> ChatMessage:

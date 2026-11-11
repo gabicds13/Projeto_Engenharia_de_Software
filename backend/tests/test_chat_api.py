@@ -1,13 +1,13 @@
 """Testes da rota de chat (Requisitos 5.1, 5.2, 5.3, 5.4)."""
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from jose import jwt
 
-import app.clients as clients
-import app.core.resilience as resilience
+from app import clients
+from app.core import resilience
 from app.core.config import get_settings
 
 
@@ -22,7 +22,7 @@ def _reset_singletons():
 
 def _token(project_ids=("proj-123",)) -> str:
     s = get_settings()
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     return jwt.encode(
         {
             "sub": "user-1",

@@ -6,10 +6,15 @@ de chat, notificações marcadas como lidas etc.).
 from __future__ import annotations
 
 from functools import lru_cache
-from app.clients.database_notifications_client import DatabaseNotificationsClient
-from app.clients.database_chat_client import DatabaseChatClient
-from app.clients.backlog_client import BacklogClient, HttpBacklogClient, MockBacklogClient
+
+from app.clients.backlog_client import (
+    BacklogClient,
+    HttpBacklogClient,
+    MockBacklogClient,
+)
 from app.clients.chat_client import ChatClient, HttpChatClient, MockChatClient
+from app.clients.database_chat_client import DatabaseChatClient
+from app.clients.database_notifications_client import DatabaseNotificationsClient
 from app.clients.github_client import GithubClient, HttpGithubClient, MockGithubClient
 from app.clients.notifications_client import (
     HttpNotificationsClient,

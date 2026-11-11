@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, Header, HTTPException
@@ -14,7 +14,6 @@ from app.domain.schemas import (
     Priority,
     Source,
 )
-
 
 router = APIRouter(
     prefix="/api/integrations",
@@ -71,7 +70,7 @@ async def publish_notification(
         title=data.title,
         body=data.body,
         link=data.link,
-        created_at=datetime.now(timezone.utc),
+        created_at=datetime.now(UTC),
         read_at=None,
     )
 

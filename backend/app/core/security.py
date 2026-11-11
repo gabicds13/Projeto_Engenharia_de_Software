@@ -7,7 +7,7 @@ Aceita:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from enum import Enum
 
 import httpx
@@ -248,7 +248,7 @@ def downstream_headers(user: CurrentUser) -> dict[str, str]:
 def issue_dev_token(role: Role, settings: Settings) -> str:
     """Continua gerando tokens locais enquanto fazemos a integração."""
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     claims = {
         "sub": f"dev-{role.value.lower()}",

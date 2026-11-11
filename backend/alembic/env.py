@@ -1,8 +1,5 @@
 from logging.config import fileConfig
 
-from sqlalchemy import engine_from_config
-from sqlalchemy import pool
-
 from alembic import context
 
 # this is the Alembic Config object, which provides
@@ -11,11 +8,7 @@ config = context.config
 
 from app.core.config import get_settings
 from app.core.database import Base
-from app.models.notification import NotificationModel
-from app.models.notification_read import NotificationReadModel
-from app.models.chat_channel import ChatChannelModel
-from app.models.chat_message import ChatMessageModel
-from app.models.chat_channel_read import ChatChannelReadModel
+
 settings = get_settings()
 
 if settings.database_url:

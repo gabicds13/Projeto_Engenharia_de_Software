@@ -3,8 +3,9 @@ from __future__ import annotations
 
 import asyncio
 import itertools
-from datetime import datetime, timedelta, timezone
-from typing import AsyncIterator, Protocol
+from collections.abc import AsyncIterator
+from datetime import UTC, datetime, timedelta
+from typing import Protocol
 
 import httpx
 
@@ -39,7 +40,7 @@ class NotificationsClient(Protocol):
 
 # --- Exemplos determinísticos para a demo (um por origem, cobrindo prioridades) ---
 def _seed_notifications() -> list[Notification]:
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     base = [
         dict(
             source=Source.CODE_REVIEW,
@@ -143,14 +144,14 @@ class MockNotificationsClient:
             if n.id == notif_id and n.read_at is None:
                 idx = self._items.index(n)
                 self._items[idx] = n.model_copy(
-                    update={"read_at": datetime.now(timezone.utc)}
+                    update={"read_at": datetime.now(UTC)}
                 )
     async def publish(self, notification: Notification) -> Notification:
       self._items.append(notification)
       return notification
 
     async def mark_all_read(self, user: CurrentUser) -> None:
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         self._items = [
             n if n.read_at else n.model_copy(update={"read_at": now}) for n in self._items
         ]
@@ -178,7 +179,7 @@ class MockNotificationsClient:
                 title=title,
                 body="Notificação de exemplo emitida pelo mock.",
                 link="/projects/proj-123",
-                created_at=datetime.now(timezone.utc),
+                created_at=datetime.now(UTC),
                 read_at=None,
             )
             self._items.append(n)
@@ -214,7 +215,7 @@ class HttpNotificationsClient:
             )
             try:
                 return NotificationPage.model_validate(r.json())
-            except Exception as exc:  # noqa: BLE001
+            except Exception as exc:
                 raise UpstreamError(f"resposta inválida de notifications: {exc}") from exc
 
     async def unread_count(self, user: CurrentUser) -> UnreadCount:

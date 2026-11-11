@@ -49,12 +49,11 @@ def create_app() -> FastAPI:
 
     app.include_router(integrations_router)
 
+    from app.chat.router import router as chat_router
+    from app.chat.router import ws_router as chat_ws_router
     from app.dashboard.router import router as dashboard_router
     from app.notifications.router import router as notifications_router
     from app.notifications.router import ws_router as notifications_ws_router
-
-    from app.chat.router import router as chat_router
-    from app.chat.router import ws_router as chat_ws_router
 
     app.include_router(dashboard_router)
     app.include_router(notifications_router)

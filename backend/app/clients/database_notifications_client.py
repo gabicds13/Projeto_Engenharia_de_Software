@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime, timezone
-from typing import AsyncIterator
+from collections.abc import AsyncIterator
+from datetime import UTC, datetime
 
 from sqlalchemy import and_, or_, select
 from sqlalchemy.exc import IntegrityError
@@ -18,6 +18,7 @@ from app.domain.schemas import (
 )
 from app.models.notification import NotificationModel
 from app.models.notification_read import NotificationReadModel
+
 
 def _to_notification(
     row: NotificationModel,
@@ -250,7 +251,7 @@ class DatabaseNotificationsClient:
                 NotificationReadModel(
                     notification_id=notif_id,
                     user_id=user.user_id,
-                    read_at=datetime.now(timezone.utc),
+                    read_at=datetime.now(UTC),
                 )
             )
 
@@ -282,7 +283,7 @@ class DatabaseNotificationsClient:
                 ).all()
             )
 
-            read_at = datetime.now(timezone.utc)
+            read_at = datetime.now(UTC)
 
             for notification_id in notification_ids:
                 if notification_id in existing_reads:
@@ -302,7 +303,7 @@ class DatabaseNotificationsClient:
         self,
         user: CurrentUser,
     ) -> AsyncIterator[dict]:
-        last_check = datetime.now(timezone.utc)
+        last_check = datetime.now(UTC)
         session_factory = get_session_factory()
 
         while True:

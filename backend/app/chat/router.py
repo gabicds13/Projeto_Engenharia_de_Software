@@ -3,18 +3,30 @@
 O acesso é restrito aos projetos presentes no token do usuário (Requisito 5.1).
 """
 from __future__ import annotations
-from datetime import timezone
-from uuid import uuid4
 
-
+from datetime import UTC, datetime
 from typing import Literal
+from uuid import uuid4
 
 from fastapi import APIRouter, Depends, Response, WebSocket
 from pydantic import BaseModel, Field
+from sqlalchemy.orm import Session
 
+from app.chat.mentions import extract_mentions
+from app.chat.realtime import direct_chat_hub
+from app.chat.service import (
+    get_channel_unread_count,
+    get_direct_messages,
+    get_or_create_direct_channel,
+    is_channel_member,
+    list_direct_channels,
+    mark_channel_as_read,
+    send_direct_message,
+)
 from app.clients import get_chat_client, get_notifications_client
+from app.clients.projects_client import ensure_project_access
 from app.core.config import get_settings
-
+from app.core.database import get_db, get_session_factory
 from app.core.resilience import UpstreamUnavailable, get_registry
 from app.core.security import (
     CurrentUser,
@@ -22,9 +34,13 @@ from app.core.security import (
     ws_authenticate_message,
 )
 from app.core.ws_bridge import pump
-from app.domain.schemas import ChatMessage, Notification, NotificationScope, Priority, Source
-from app.clients.projects_client import ensure_project_access
-from app.chat.mentions import extract_mentions
+from app.domain.schemas import (
+    ChatMessage,
+    Notification,
+    NotificationScope,
+    Priority,
+    Source,
+)
 
 router = APIRouter(prefix="/api/bff/chat", tags=["chat"])
 
@@ -38,9 +54,37 @@ class HistoryResult(BaseModel):
 
 class PostMessageIn(BaseModel):
     content: str = Field(min_length=1, max_length=4000)
+class DirectMessageIn(BaseModel):
+    target_user_id: str = Field(min_length=1, max_length=100)
+
+
+class DirectChannelOut(BaseModel):
+    id: str
+    project_id: str
+    type: str
+    name: str
+
+class DirectChannelListItem(BaseModel):
+    id: str
+    project_id: str
+    type: str
+    member_ids: list[str]
+    created_at: datetime
+
+class DirectChatMessageOut(BaseModel):
+    id: str
+    channel_id: str
+    project_id: str
+    author_id: str
+    content: str
+    created_at: datetime
 
 class UnreadResult(BaseModel):
     project_id: str
+    unread: int
+
+class ChannelUnreadOut(BaseModel):
+    channel_id: str
     unread: int
 
 async def _require_project(
@@ -147,7 +191,7 @@ async def post_message(
                 title="Você foi mencionado no Chat",
                 body=f"{user.user_id}: {payload.content}",
                 link="/chat",
-                created_at=message.created_at.astimezone(timezone.utc),
+                created_at=message.created_at.astimezone(UTC),
                 read_at=None,
             )
         )
@@ -157,6 +201,188 @@ async def post_message(
 
 ws_router = APIRouter()
 
+@router.post(
+    "/rooms/{project_id}/direct",
+    response_model=DirectChannelOut,
+)
+async def create_direct_channel(
+    project_id: str,
+    payload: DirectMessageIn,
+    user: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> DirectChannelOut:
+    await _require_project(user, project_id)
+
+    channel = get_or_create_direct_channel(
+        db=db,
+        current_user_id=user.user_id,
+        target_user_id=payload.target_user_id,
+        project_id=project_id,
+    )
+
+    return DirectChannelOut(
+        id=channel.id,
+        project_id=channel.project_id,
+        type=channel.type,
+        name=channel.name,
+    )
+
+@router.get(
+    "/rooms/{project_id}/direct",
+    response_model=list[DirectChannelListItem],
+)
+async def get_direct_channels(
+    project_id: str,
+    user: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> list[DirectChannelListItem]:
+    await _require_project(user, project_id)
+
+    channels = list_direct_channels(
+        db=db,
+        user_id=user.user_id,
+        project_id=project_id,
+    )
+
+    return [
+        DirectChannelListItem(
+            id=channel.id,
+            project_id=channel.project_id,
+            type=channel.type,
+            member_ids=members,
+            created_at=channel.created_at,
+        )
+        for channel, members in channels
+    ]
+
+@router.get(
+    "/rooms/{project_id}/direct/{channel_id}/messages",
+    response_model=list[DirectChatMessageOut],
+)
+async def direct_history(
+    project_id: str,
+    channel_id: str,
+    user: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> list[DirectChatMessageOut]:
+    await _require_project(user, project_id)
+
+    messages = get_direct_messages(
+        db=db,
+        channel_id=channel_id,
+        project_id=project_id,
+        user_id=user.user_id,
+    )
+
+    return [
+        DirectChatMessageOut(
+            id=message.id,
+            channel_id=message.channel_id,
+            project_id=message.project_id,
+            author_id=message.author_id,
+            content=message.content,
+            created_at=message.created_at,
+        )
+        for message in messages
+    ]
+
+
+@router.post(
+    "/rooms/{project_id}/direct/{channel_id}/messages",
+    response_model=DirectChatMessageOut,
+)
+async def post_direct_message(
+    project_id: str,
+    channel_id: str,
+    payload: PostMessageIn,
+    user: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> DirectChatMessageOut:
+    await _require_project(user, project_id)
+
+    message = send_direct_message(
+        db=db,
+        channel_id=channel_id,
+        project_id=project_id,
+        user_id=user.user_id,
+        content=payload.content,
+    )
+    await direct_chat_hub.publish(
+    channel_id,
+    {
+        "event": "chat.direct.message",
+        "data": {
+            "id": message.id,
+            "channel_id": message.channel_id,
+            "project_id": message.project_id,
+            "author_id": message.author_id,
+            "content": message.content,
+            "created_at": message.created_at.isoformat(),
+        },
+    },
+)
+
+    return DirectChatMessageOut(
+        id=message.id,
+        channel_id=message.channel_id,
+        project_id=message.project_id,
+        author_id=message.author_id,
+        content=message.content,
+        created_at=message.created_at,
+    )
+
+@router.get(
+    "/rooms/{project_id}/direct/{channel_id}/unread",
+    response_model=ChannelUnreadOut,
+)
+async def direct_unread_count(
+    project_id: str,
+    channel_id: str,
+    user: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> ChannelUnreadOut:
+    await _require_project(user, project_id)
+
+    if not is_channel_member(
+        db,
+        channel_id,
+        user.user_id,
+    ):
+        raise PermissionError(
+            "Usuário não participa desta conversa."
+        )
+
+    unread = get_channel_unread_count(
+        db=db,
+        channel_id=channel_id,
+        user_id=user.user_id,
+    )
+
+    return ChannelUnreadOut(
+        channel_id=channel_id,
+        unread=unread,
+    )
+
+
+@router.post(
+    "/rooms/{project_id}/direct/{channel_id}/read",
+    status_code=204,
+)
+async def mark_direct_read(
+    project_id: str,
+    channel_id: str,
+    user: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> Response:
+    await _require_project(user, project_id)
+
+    mark_channel_as_read(
+        db=db,
+        channel_id=channel_id,
+        user_id=user.user_id,
+    )
+
+    return Response(status_code=204)
 
 @ws_router.websocket("/ws/chat")
 async def chat_ws(websocket: WebSocket) -> None:
@@ -182,5 +408,47 @@ async def chat_ws(websocket: WebSocket) -> None:
     await pump(
         websocket,
         lambda: client.ws_source(user, project_id),
+        accept=False,
+    )
+
+@ws_router.websocket("/ws/chat/direct")
+async def direct_chat_ws(
+    websocket: WebSocket,
+) -> None:
+    try:
+        user = await ws_authenticate_message(websocket)
+
+        project_id = websocket.query_params.get("project_id")
+        channel_id = websocket.query_params.get("channel_id")
+
+        if not project_id or not channel_id:
+            await websocket.close(code=1008)
+            return
+
+        await _require_project(
+            user,
+            project_id,
+        )
+
+        session_factory = get_session_factory()
+
+        with session_factory() as db:
+            member = is_channel_member(
+                db,
+                channel_id,
+                user.user_id,
+            )
+
+        if not member:
+            await websocket.close(code=1008)
+            return
+
+    except Exception:
+        await websocket.close(code=1008)
+        return
+
+    await pump(
+        websocket,
+        lambda: direct_chat_hub.subscribe(channel_id),
         accept=False,
     )

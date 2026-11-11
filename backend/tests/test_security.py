@@ -1,7 +1,7 @@
 """Testes de autenticação e autorização (Requisitos 2.2, 2.4, 2.5)."""
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from fastapi import Depends, FastAPI
@@ -36,7 +36,7 @@ def auth_client(app_with_protected_routes):
 
 def _token(role: str = "DEV", **overrides) -> str:
     s = get_settings()
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     claims = {
         "sub": "user-1",
         "role": role,
@@ -61,7 +61,7 @@ def test_missing_token_returns_401(auth_client):
 
 
 def test_expired_token_returns_401(auth_client):
-    expired = _token("DEV", exp=datetime.now(timezone.utc) - timedelta(hours=1))
+    expired = _token("DEV", exp=datetime.now(UTC) - timedelta(hours=1))
     r = auth_client.get("/me", headers={"Authorization": f"Bearer {expired}"})
     assert r.status_code == 401
 

@@ -31,3 +31,13 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
 packages = ["app"]
+
+[tool.ruff.lint]
+ignore = [
+    "B008",
+    "BLE001",
+    "C408",
+    "SIM117",
+    "UP046",
+    "S110",
+]

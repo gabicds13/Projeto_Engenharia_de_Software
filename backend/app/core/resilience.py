@@ -16,9 +16,10 @@ from __future__ import annotations
 
 import asyncio
 import time
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from enum import Enum
-from typing import Awaitable, Callable, Generic, TypeVar
+from typing import Generic, TypeVar
 
 T = TypeVar("T")
 
@@ -119,7 +120,7 @@ class ResilienceRegistry:
 
         try:
             value = await asyncio.wait_for(factory(), timeout=timeout)
-        except Exception as exc:  # noqa: BLE001 — qualquer falha vira degradação
+        except Exception as exc:
             breaker.record_failure()
             return self._fallback(key, repr(exc))
 
@@ -137,9 +138,9 @@ class ResilienceRegistry:
         raise UpstreamUnavailable(key, reason)
 
 
-from functools import lru_cache  # noqa: E402
+from functools import lru_cache
 
-from app.core.config import get_settings  # noqa: E402
+from app.core.config import get_settings
 
 
 @lru_cache
