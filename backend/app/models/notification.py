@@ -33,6 +33,11 @@ class NotificationModel(Base):
         nullable=True,
         index=True,
     )
+    target_user_id: Mapped[str | None] = mapped_column(
+    String(100),
+    nullable=True,
+    index=True,
+    )
 
     source: Mapped[str] = mapped_column(
         String(50),

@@ -4,7 +4,7 @@ import asyncio
 from datetime import datetime, timezone
 from typing import AsyncIterator
 
-from sqlalchemy import or_, select
+from sqlalchemy import and_, or_, select
 from sqlalchemy.exc import IntegrityError
 
 from app.core.database import get_session_factory
@@ -28,6 +28,7 @@ def _to_notification(
         event_id=row.event_id,
         scope=row.scope,
         project_id=row.project_id,
+        target_user_id=row.target_user_id,
         source=Source(row.source),
         type=row.type,
         priority=Priority(row.priority),
@@ -40,7 +41,17 @@ def _to_notification(
         created_at=row.created_at,
         read_at=read_at,
     )
-
+def _visibility_filter(user: CurrentUser):
+    return and_(
+        or_(
+            NotificationModel.scope == "global",
+            NotificationModel.project_id.in_(user.project_ids),
+        ),
+        or_(
+            NotificationModel.target_user_id.is_(None),
+            NotificationModel.target_user_id == user.user_id,
+        ),
+    )
 class DatabaseNotificationsClient:
     async def publish(
         self,
@@ -64,6 +75,7 @@ class DatabaseNotificationsClient:
                 event_id=notification.event_id,
                 scope=notification.scope.value,
                 project_id=notification.project_id,
+                target_user_id=notification.target_user_id,
                 source=notification.source.value,
                 type=notification.type,
                 priority=notification.priority.value,
@@ -127,10 +139,7 @@ class DatabaseNotificationsClient:
                     ),
                 )
                 .where(
-                    or_(
-                        NotificationModel.scope == "global",
-                        NotificationModel.project_id.in_(user.project_ids),
-                    )
+                    _visibility_filter(user)
                 )
             )
 
@@ -193,10 +202,7 @@ class DatabaseNotificationsClient:
                     ),
                 )
                 .where(
-                    or_(
-                        NotificationModel.scope == "global",
-                        NotificationModel.project_id.in_(user.project_ids),
-                    ),
+                    _visibility_filter(user),
                     NotificationReadModel.read_at.is_(None),
                 )
             ).all()
@@ -225,10 +231,7 @@ class DatabaseNotificationsClient:
             notification = db.scalar(
                 select(NotificationModel).where(
                     NotificationModel.id == notif_id,
-                    or_(
-                        NotificationModel.scope == "global",
-                        NotificationModel.project_id.in_(user.project_ids),
-                    ),
+                    _visibility_filter(user),
                 )
             )
 
@@ -260,12 +263,9 @@ class DatabaseNotificationsClient:
 
         with session_factory() as db:
             notification_ids = db.scalars(
-                select(NotificationModel.id).where(
-                    or_(
-                        NotificationModel.scope == "global",
-                        NotificationModel.project_id.in_(user.project_ids),
-                    )
-                )
+             select(NotificationModel.id).where(
+                _visibility_filter(user)
+             )
             ).all()
 
             if not notification_ids:
@@ -312,10 +312,7 @@ class DatabaseNotificationsClient:
                 rows = db.scalars(
                     select(NotificationModel)
                     .where(
-                        or_(
-                            NotificationModel.scope == "global",
-                            NotificationModel.project_id.in_(user.project_ids),
-                        ),
+                        _visibility_filter(user),
                         NotificationModel.created_at > last_check,
                     )
                     .order_by(NotificationModel.created_at.asc())

@@ -3,13 +3,16 @@
 O acesso é restrito aos projetos presentes no token do usuário (Requisito 5.1).
 """
 from __future__ import annotations
+from datetime import timezone
+from uuid import uuid4
+
 
 from typing import Literal
 
 from fastapi import APIRouter, Depends, Response, WebSocket
 from pydantic import BaseModel, Field
 
-from app.clients import get_chat_client
+from app.clients import get_chat_client, get_notifications_client
 from app.core.config import get_settings
 
 from app.core.resilience import UpstreamUnavailable, get_registry
@@ -19,8 +22,9 @@ from app.core.security import (
     ws_authenticate_message,
 )
 from app.core.ws_bridge import pump
-from app.domain.schemas import ChatMessage
+from app.domain.schemas import ChatMessage, Notification, NotificationScope, Priority, Source
 from app.clients.projects_client import ensure_project_access
+from app.chat.mentions import extract_mentions
 
 router = APIRouter(prefix="/api/bff/chat", tags=["chat"])
 
@@ -112,7 +116,43 @@ async def post_message(
     user: CurrentUser = Depends(get_current_user),
 ) -> ChatMessage:
     await _require_project(user, project_id)
-    return await get_chat_client().post(user, project_id, payload.content)
+
+    message = await get_chat_client().post(
+        user,
+        project_id,
+        payload.content,
+    )
+
+    mentions = extract_mentions(
+        payload.content,
+        user.user_id,
+    )
+
+    notifications = get_notifications_client()
+
+    for target_user_id in mentions:
+        await notifications.publish(
+            Notification(
+                id=str(uuid4()),
+                event_id=f"chat-mention-{message.id}-{target_user_id}"[:100],
+                source=Source.CHAT,
+                type="chat.mention",
+                priority=Priority.MEDIUM,
+                relevance_score=0.7,
+                reason="Você foi mencionado em uma mensagem do Chat.",
+                classified_by="rules",
+                scope=NotificationScope.PROJECT,
+                project_id=project_id,
+                target_user_id=target_user_id,
+                title="Você foi mencionado no Chat",
+                body=f"{user.user_id}: {payload.content}",
+                link="/chat",
+                created_at=message.created_at.astimezone(timezone.utc),
+                read_at=None,
+            )
+        )
+
+    return message 
 
 
 ws_router = APIRouter()
