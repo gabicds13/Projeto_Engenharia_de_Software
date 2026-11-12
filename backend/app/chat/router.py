@@ -15,6 +15,9 @@ from sqlalchemy.orm import Session
 from app.chat.mentions import extract_mentions
 from app.chat.realtime import direct_chat_hub
 from app.chat.service import (
+    accept_direct_invitation,
+    get_channel_membership,
+    has_pending_members,
     get_channel_unread_count,
     get_direct_messages,
     get_or_create_direct_channel,
@@ -70,6 +73,8 @@ class DirectChannelListItem(BaseModel):
     type: str
     member_ids: list[str]
     created_at: datetime
+    pending: bool = False
+    needs_my_acceptance: bool = False
 
 class DirectChatMessageOut(BaseModel):
     id: str
@@ -227,6 +232,32 @@ async def create_direct_channel(
         name=channel.name,
     )
 
+@router.post(
+    "/rooms/{project_id}/direct/{channel_id}/accept",
+    response_model=DirectChannelOut,
+)
+async def accept_direct_channel(
+    project_id: str,
+    channel_id: str,
+    user: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> DirectChannelOut:
+    # A pessoa convidada confirma o acesso ao projeto com seu próprio JWT.
+    await _require_project(user, project_id)
+    channel = accept_direct_invitation(
+        db=db,
+        channel_id=channel_id,
+        project_id=project_id,
+        user_id=user.user_id,
+    )
+    return DirectChannelOut(
+        id=channel.id,
+        project_id=channel.project_id,
+        type=channel.type,
+        name=channel.name,
+    )
+
+
 @router.get(
     "/rooms/{project_id}/direct",
     response_model=list[DirectChannelListItem],
@@ -251,6 +282,11 @@ async def get_direct_channels(
             type=channel.type,
             member_ids=members,
             created_at=channel.created_at,
+            pending=has_pending_members(db, channel.id),
+            needs_my_acceptance=(
+                (membership := get_channel_membership(db, channel.id, user.user_id))
+                is not None and membership.accepted_at is None
+            ),
         )
         for channel, members in channels
     ]
@@ -343,19 +379,11 @@ async def direct_unread_count(
 ) -> ChannelUnreadOut:
     await _require_project(user, project_id)
 
-    if not is_channel_member(
-        db,
-        channel_id,
-        user.user_id,
-    ):
-        raise PermissionError(
-            "Usuário não participa desta conversa."
-        )
-
     unread = get_channel_unread_count(
         db=db,
         channel_id=channel_id,
         user_id=user.user_id,
+        project_id=project_id,
     )
 
     return ChannelUnreadOut(
@@ -380,6 +408,7 @@ async def mark_direct_read(
         db=db,
         channel_id=channel_id,
         user_id=user.user_id,
+        project_id=project_id,
     )
 
     return Response(status_code=204)
@@ -439,7 +468,7 @@ async def direct_chat_ws(
                 user.user_id,
             )
 
-        if not member:
+        if not member or has_pending_members(db, channel_id):
             await websocket.close(code=1008)
             return
 
