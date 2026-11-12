@@ -55,6 +55,8 @@ def test_publish_notification_records_llm_classification(client, monkeypatch):
             relevance_score=0.92,
             reason="Revisão importante segundo o modelo.",
             classified_by="llm",
+            summary="Revisão do código requer atenção.",
+            group_key="code-review",
         )
 
     monkeypatch.setattr(integrations, "classify_notification", fake_classifier)
@@ -69,6 +71,8 @@ def test_publish_notification_records_llm_classification(client, monkeypatch):
     assert notification["relevance_score"] == 0.92
     assert notification["classified_by"] == "llm"
     assert notification["reason"] == "Revisão importante segundo o modelo."
+    assert notification["summary"] == "Revisão do código requer atenção."
+    assert notification["group_key"] == "code-review"
 
 
 def test_invalid_key_does_not_invoke_llm(client, monkeypatch):
