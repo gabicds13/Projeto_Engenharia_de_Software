@@ -89,3 +89,41 @@ def test_invalid_key_does_not_invoke_llm(client, monkeypatch):
         json={**_payload(), "event_id": "test-event-unauthorized"},
     )
     assert response.status_code == 401
+
+
+def test_integration_accepts_optional_technical_context(client, monkeypatch):
+    """Contexto técnico não modifica o contrato legado nem concede papéis."""
+    import app.api.integrations as integrations
+    from app.domain.schemas import Priority
+    from app.notifications.classifier import Classification
+
+    received = {}
+
+    async def fake_classifier(**kwargs):
+        received.update(kwargs)
+        return Classification(
+            priority=Priority.MEDIUM,
+            relevance_score=0.52,
+            reason="Prioridade recebida.",
+            classified_by="rules",
+            summary="Atualização do código.",
+            group_key="github",
+        )
+
+    monkeypatch.setattr(integrations, "classify_notification", fake_classifier)
+    payload = {
+        **_payload(),
+        "event_id": "technical-context-test-001",
+        "priority": "medium",
+        "stack": ["Python", "FastAPI"],
+        "changed_files": ["app/main.py"],
+    }
+    response = client.post(
+        "/api/integrations/notifications",
+        headers={"X-Integration-Key": "dev-integration-key"},
+        json=payload,
+    )
+    assert response.status_code == 200
+    assert received["stack"] == ("Python", "FastAPI")
+    assert received["changed_files"] == ("app/main.py",)
+    assert "verified_roles" not in received
