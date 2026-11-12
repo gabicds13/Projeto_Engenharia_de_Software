@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "../../auth/AuthContext";
+import { DirectChatPanel } from "./DirectChatPanel";
 import { UnavailableState } from "../../components/UnavailableState";
 import { useWebSocket } from "../../hooks/useWebSocket";
 import { api, ApiError, getToken } from "../../lib/apiClient";
@@ -42,6 +43,7 @@ function getProjectId(project: Project): string {
 export function ChatPage() {
   const { user } = useAuth();
   const [projects, setProjects] = useState<Project[]>([]);
+  const [chatMode, setChatMode] = useState<"general" | "direct">("general");
   const [projectId, setProjectId] = useState("");
   const [projectsLoading, setProjectsLoading] = useState(true);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -204,9 +206,25 @@ export function ChatPage() {
       </p>
     );
   }
-  if (!available) return <UnavailableState label="Chat" />;
+  if (chatMode === "general" && !available) return <UnavailableState label="Chat" />;
 
   return (
+    <div className="flex flex-col gap-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex gap-2">
+          <button type="button" onClick={() => setChatMode("general")}
+            className={`rounded-md px-3 py-2 text-sm font-medium ${chatMode === "general" ? "bg-primary text-white" : "border border-border bg-surface text-text"}`}>
+            Chat geral
+          </button>
+          <button type="button" onClick={() => setChatMode("direct")}
+            className={`rounded-md px-3 py-2 text-sm font-medium ${chatMode === "direct" ? "bg-primary text-white" : "border border-border bg-surface text-text"}`}>
+            Conversas privadas
+          </button>
+        </div>
+      </div>
+      {chatMode === "direct" ? (
+        <DirectChatPanel projectId={projectId} currentUserId={user?.user_id ?? ""} />
+      ) : (
     <section className="flex h-[70vh] flex-col rounded-lg border border-border bg-surface">
       <header className="flex items-center justify-between border-b border-border px-4 py-3">
         <div className="flex items-center gap-3">
@@ -273,6 +291,8 @@ export function ChatPage() {
         </button>
       </form>
     </section>
+      )}
+    </div>
   );
 }
 
