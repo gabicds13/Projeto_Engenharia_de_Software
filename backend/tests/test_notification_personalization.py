@@ -102,3 +102,54 @@ async def test_websocket_recebe_pontuacao_do_mesmo_perfil():
     data = events[0]["data"]
     assert data["personal_relevance_score"] == 0.66
     assert data["personal_reason"].startswith("Para DEV:")
+
+
+def test_local_dev_preview_sem_papel_eh_identificada():
+    from app.notifications.personalization import personalize_for_project_roles
+
+    original = notification(Source.CODE_REVIEW)
+    result = personalize_for_project_roles(
+        original,
+        user(None),
+        {"proj-123": ()},
+        preview_role=Role.DEV,
+    )
+    assert result.personalization_preview is True
+    assert result.personal_relevance_score == 0.66
+    assert "Simulação" in result.personal_reason
+    assert original.personal_relevance_score is None
+
+
+def test_preview_nao_sobrescreve_papel_real():
+    from app.notifications.personalization import personalize_for_project_roles
+
+    result = personalize_for_project_roles(
+        notification(Source.CODE_REVIEW),
+        user(None),
+        {"proj-123": (Role.PO,)},
+        preview_role=Role.DEV,
+    )
+    assert result.personalization_preview is False
+    assert result.personal_relevance_score == 0.5
+
+
+def test_preview_so_habilitada_em_desenvolvimento_com_mocks():
+    from app.core.config import Settings
+    from app.notifications.router import _local_preview_role
+
+    assert _local_preview_role(
+        Settings(_env_file=None, app_env="development", use_mocks=True,
+                 notification_preview_role="DEV")
+    ) == Role.DEV
+    assert _local_preview_role(
+        Settings(_env_file=None, app_env="production", use_mocks=True,
+                 notification_preview_role="DEV")
+    ) is None
+    assert _local_preview_role(
+        Settings(_env_file=None, app_env="development", use_mocks=False,
+                 notification_preview_role="DEV")
+    ) is None
+    assert _local_preview_role(
+        Settings(_env_file=None, app_env="development", use_mocks=True,
+                 notification_preview_role=None)
+    ) is None
