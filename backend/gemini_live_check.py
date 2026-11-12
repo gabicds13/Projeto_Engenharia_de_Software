@@ -50,6 +50,9 @@ async def main() -> int:
     )
 
     print("Fonte da classificação:", result.classified_by)
+    if result.diagnostic:
+        # Exibe apenas categoria ou código HTTP, nunca cabeçalhos ou chaves.
+        print("Diagnóstico seguro:", result.diagnostic)
     print("Prioridade:", result.priority.value)
     print("Relevância:", result.relevance_score)
     print("Resumo:", result.summary)
