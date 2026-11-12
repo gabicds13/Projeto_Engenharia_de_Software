@@ -41,3 +41,47 @@ def test_publish_notification_with_invalid_key(client):
     )
 
     assert response.status_code == 401
+
+def test_publish_notification_records_llm_classification(client, monkeypatch):
+    """O endpoint mantém contrato e grava a classificação fornecida pelo modelo."""
+    from app.domain.schemas import Priority
+    from app.notifications.classifier import Classification
+    import app.api.integrations as integrations
+
+    async def fake_classifier(**kwargs):
+        assert kwargs["incoming_priority"] == Priority.HIGH
+        return Classification(
+            priority=Priority.HIGH,
+            relevance_score=0.92,
+            reason="Revisão importante segundo o modelo.",
+            classified_by="llm",
+        )
+
+    monkeypatch.setattr(integrations, "classify_notification", fake_classifier)
+    response = client.post(
+        "/api/integrations/notifications",
+        headers={"X-Integration-Key": "dev-integration-key"},
+        json={**_payload(), "event_id": "test-event-llm-001"},
+    )
+    assert response.status_code == 200
+    notification = response.json()
+    assert notification["priority"] == "high"
+    assert notification["relevance_score"] == 0.92
+    assert notification["classified_by"] == "llm"
+    assert notification["reason"] == "Revisão importante segundo o modelo."
+
+
+def test_invalid_key_does_not_invoke_llm(client, monkeypatch):
+    """Não há consulta externa antes da validação da chave de integração."""
+    import app.api.integrations as integrations
+
+    async def forbidden_classifier(**kwargs):
+        raise AssertionError("A IA não pode ser chamada com chave inválida")
+
+    monkeypatch.setattr(integrations, "classify_notification", forbidden_classifier)
+    response = client.post(
+        "/api/integrations/notifications",
+        headers={"X-Integration-Key": "invalid-integration-key"},
+        json={**_payload(), "event_id": "test-event-unauthorized"},
+    )
+    assert response.status_code == 401
