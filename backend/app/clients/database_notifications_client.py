@@ -303,31 +303,29 @@ class DatabaseNotificationsClient:
         self,
         user: CurrentUser,
     ) -> AsyncIterator[dict]:
+        # Nao bloqueia o event loop enquanto o Neon responde.
         last_check = datetime.now(UTC)
-        session_factory = get_session_factory()
 
-        while True:
-            await asyncio.sleep(2)
-
+        def fetch_newer(since: datetime) -> list[Notification]:
+            session_factory = get_session_factory()
             with session_factory() as db:
                 rows = db.scalars(
                     select(NotificationModel)
                     .where(
                         _visibility_filter(user),
-                        NotificationModel.created_at > last_check,
+                        NotificationModel.created_at > since,
                     )
                     .order_by(NotificationModel.created_at.asc())
                 ).all()
+                return [_to_notification(row) for row in rows]
 
-            if rows:
-                last_check = max(
-                    row.created_at
-                    for row in rows
-                )
+        while True:
+            await asyncio.sleep(2)
+            notifications = await asyncio.to_thread(fetch_newer, last_check)
 
-            for row in rows:
-                notification = _to_notification(row)
-
+            if notifications:
+                last_check = max(n.created_at for n in notifications)
+            for notification in notifications:
                 yield {
                     "event": "notification.new",
                     "data": notification.model_dump(mode="json"),
