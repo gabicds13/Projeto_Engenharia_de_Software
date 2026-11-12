@@ -5,6 +5,8 @@ A prioridade global continua prevalecendo (critical > high > medium > low).
 """
 from __future__ import annotations
 
+from dataclasses import replace
+
 from app.core.security import CurrentUser, Role
 from app.domain.schemas import Notification, NotificationPage, Priority, Source
 
@@ -93,5 +95,50 @@ def notification_sort_key(notification: Notification) -> tuple[int, float, float
 def personalize_page(page: NotificationPage, user: CurrentUser) -> NotificationPage:
     """Reordena apenas a página carregada, mantendo o cursor e o isolamento do cliente."""
     items = [personalize_notification(notification, user) for notification in page.items]
+    items.sort(key=notification_sort_key, reverse=True)
+    return page.model_copy(update={"items": items})
+
+
+def personalize_for_project_roles(
+    notification: Notification,
+    user: CurrentUser,
+    roles_by_project: dict[str, tuple[Role, ...] | None],
+) -> Notification:
+    """Calcula a melhor relevância para os papéis efetivos neste projeto.
+
+    Papéis não confirmados mantêm o comportamento anterior. Um projeto sem
+    nenhum papel reconhecido usa relevância geral, não inventa um perfil.
+    Notificações globais continuam considerando o papel geral, se disponível.
+    """
+    if notification.project_id is None:
+        return personalize_notification(notification, user)
+
+    roles = roles_by_project.get(notification.project_id)
+    if roles is None:
+        return personalize_notification(notification, user)
+    if not roles:
+        return personalize_notification(notification, replace(user, role=None))
+
+    candidates = [
+        personalize_notification(notification, replace(user, role=role))
+        for role in roles
+    ]
+    return max(
+        candidates,
+        key=lambda n: n.personal_relevance_score
+        if n.personal_relevance_score is not None else n.relevance_score,
+    )
+
+
+def personalize_page_for_projects(
+    page: NotificationPage,
+    user: CurrentUser,
+    roles_by_project: dict[str, tuple[Role, ...] | None],
+) -> NotificationPage:
+    """Aplica perfis específicos sem alterar a prioridade original do evento."""
+    items = [
+        personalize_for_project_roles(notification, user, roles_by_project)
+        for notification in page.items
+    ]
     items.sort(key=notification_sort_key, reverse=True)
     return page.model_copy(update={"items": items})
