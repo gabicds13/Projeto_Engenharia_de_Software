@@ -195,7 +195,7 @@ def test_groqcloud_default_eh_desligado_sem_chave():
     assert settings.notification_ai_enabled is False
     assert settings.notification_ai_api_key is None
     assert settings.notification_ai_base_url == "https://api.groq.com/openai/v1"
-    assert settings.notification_ai_model == "llama-3.3-70b-versatile"
+    assert settings.notification_ai_model == "openai/gpt-oss-20b"
 
 
 @pytest.mark.asyncio
@@ -236,7 +236,7 @@ async def test_groqcloud_url_e_contrato_json(monkeypatch):
         settings=settings,
     )
     assert captured["url"] == "https://api.groq.com/openai/v1/chat/completions"
-    assert captured["payload"]["model"] == "llama-3.3-70b-versatile"
+    assert captured["payload"]["model"] == "openai/gpt-oss-20b"
     assert captured["payload"]["response_format"] == {"type": "json_object"}
     assert result.classified_by == "llm"
     assert result.relevance_score == 0.77
