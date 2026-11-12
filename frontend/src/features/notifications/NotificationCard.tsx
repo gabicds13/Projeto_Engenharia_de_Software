@@ -50,7 +50,11 @@ export function NotificationCard({ notification, onMarkRead }: Props) {
             className="ml-2"
             title={notification.personal_reason ?? notification.reason}
           >
-            · {notification.personal_reason ? "Relevância para seu perfil" : "Relevância geral"}: {Math.round((notification.personal_relevance_score ?? notification.relevance_score) * 100)}%
+            · {notification.personalization_preview
+              ? "SIMULAÇÃO LOCAL (DEV)"
+              : notification.personal_reason
+                ? "Relevância para seu perfil"
+                : "Relevância geral"}: {Math.round((notification.personal_relevance_score ?? notification.relevance_score) * 100)}%
           </span>
         </span>
         {!read_at && onMarkRead && (
