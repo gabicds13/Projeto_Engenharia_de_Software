@@ -374,3 +374,29 @@ O contexto técnico nunca deve conter tokens, secrets, informações pessoais
 ou nomes de arquivos sensíveis. A classificação com IA segue opcional:
 sem chave de API e `NOTIFICATION_AI_ENABLED=true`, o fallback por regras
 continua ativo.
+
+
+### Prévia de IA com papel real do Módulo 1 (sem persistência)
+
+Foi acrescentado o endpoint autenticado
+`POST /api/bff/notifications/context-preview` para testar a classificação
+com contexto individual. Recebe `project_id`, `source`, `event_type`,
+`title`, `body`, `priority`, `stack` e `changed_files`.
+O usuário precisa ter acesso ao projeto. O backend consulta os papéis do
+próprio usuário no Módulo 1 usando seu JWT e passa somente os papéis
+**confirmados** ao classificador. O corpo da solicitação **não aceita**
+`verified_roles` nem outras funções informadas pelo cliente.
+
+A resposta mostra `verified_roles`, `roles_verified` e uma `notification`
+de demonstração com relevância personalizada. Se o Módulo 1 não confirmar
+o papel, o contexto da IA permanece vazio e a relevância é neutra.
+Ser proprietário do projeto não transforma o usuário em PO. Esta rota não
+insere, altera nem marca notificações como lidas e não grava dados no Neon.
+Com `NOTIFICATION_AI_ENABLED=false`, usa apenas as regras locais.
+
+**Escopo atual:** a publicação normal de eventos em
+`POST /api/integrations/notifications` permanece com classificação global,
+sem papéis individuais. A prévia é o ponto de integração contextual para
+testes autenticados; não representa ainda uma classificação personalizada
+persistida de cada destinatário. Não envie segredos ou dados pessoais no
+corpo da prévia.
