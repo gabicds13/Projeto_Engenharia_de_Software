@@ -93,6 +93,8 @@ async def test_modelo_retorna_classificacao_e_nao_recebe_segredos(monkeypatch):
                         "priority": "high",
                         "relevance_score": 0.91,
                         "reason": "Bloqueio de entrega detectado.",
+                        "summary": "História bloqueada aguardando aprovação.",
+                        "group_key": "backlog-blocked",
                     })}}
                 ]
             }
@@ -122,6 +124,8 @@ async def test_modelo_retorna_classificacao_e_nao_recebe_segredos(monkeypatch):
     assert result.classified_by == "llm"
     assert result.priority == Priority.HIGH
     assert result.relevance_score == 0.91
+    assert result.summary == "História bloqueada aguardando aprovação."
+    assert result.group_key == "backlog-blocked"
     assert request_seen["headers"]["Authorization"] == "Bearer secret-value-test"
     sent = request_seen["body"]["messages"][1]["content"]
     assert "secret-value-test" not in sent
@@ -164,6 +168,8 @@ async def test_modelo_nao_pode_rebaixar_prioridade_do_produtor(monkeypatch):
                     "priority": "low",
                     "relevance_score": 0.1,
                     "reason": "Baixa relevância aparente.",
+                    "summary": "Uma revisão de código foi concluída.",
+                    "group_key": "code-review",
                 })}}]
             }
 
@@ -213,6 +219,8 @@ async def test_groqcloud_url_e_contrato_json(monkeypatch):
                     "priority": "medium",
                     "relevance_score": 0.77,
                     "reason": "Mudança relevante para desenvolvedores.",
+                    "summary": "Novo commit no repositório.",
+                    "group_key": "github-commit",
                 })}}]
             }
 
@@ -240,3 +248,51 @@ async def test_groqcloud_url_e_contrato_json(monkeypatch):
     assert captured["payload"]["response_format"] == {"type": "json_object"}
     assert result.classified_by == "llm"
     assert result.relevance_score == 0.77
+
+
+def test_fallback_inclui_resumo_e_agrupamento():
+    result = rule_based_classification(
+        source=Source.GITHUB,
+        event_type="pull_request.opened",
+        title="PR de correção",
+        body="Nova contribuição",
+        incoming_priority=Priority.MEDIUM,
+    )
+    assert result.summary == "PR de correção"
+    assert result.group_key == "github"
+    assert result.classified_by == "rules"
+
+
+@pytest.mark.asyncio
+async def test_json_incompleto_retorna_fallback(monkeypatch):
+    class FakeResponse:
+        def raise_for_status(self):
+            pass
+
+        def json(self):
+            return {"choices": [{"message": {"content": json.dumps({
+                "priority": "high",
+                "relevance_score": 0.92,
+                "reason": "Revisão relevante.",
+                # Provedor omitiu resumo e agrupamento.
+            })}}]}
+
+    async def fake_post(self, *args, **kwargs):
+        return FakeResponse()
+
+    monkeypatch.setattr(httpx.AsyncClient, "post", fake_post)
+    result = await classify_notification(
+        source=Source.CODE_REVIEW,
+        event_type="review.completed",
+        title="Revisão concluída",
+        body="Revisor aprovou.",
+        incoming_priority=Priority.MEDIUM,
+        settings=Settings(
+            _env_file=None,
+            notification_ai_enabled=True,
+            notification_ai_api_key="dummy-test",
+        ),
+    )
+    assert result.classified_by == "rules"
+    assert result.summary == "Revisão concluída"
+    assert result.group_key == "code_review"
