@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from dataclasses import replace
+import asyncio
 from typing import Literal
 
 from fastapi import APIRouter, Depends, Query, WebSocket
@@ -9,6 +10,7 @@ from pydantic import BaseModel
 
 from app.clients import get_notifications_client
 from app.clients.projects_client import list_accessible_project_ids
+from app.clients.project_roles_client import get_project_roles
 from app.core.config import Settings, get_settings
 from app.core.resilience import UpstreamUnavailable, get_registry
 from app.core.security import (
@@ -17,7 +19,10 @@ from app.core.security import (
     ws_authenticate_message,
 )
 from app.core.ws_bridge import pump
-from app.notifications.personalization import personalize_page, personalize_notification
+from app.notifications.personalization import (
+    personalize_page_for_projects,
+    personalize_for_project_roles,
+)
 from app.domain.schemas import NotificationPage, Priority, Source, UnreadCount
 
 router = APIRouter(prefix="/api/bff/notifications", tags=["notifications"])
@@ -31,6 +36,23 @@ async def _user_with_accessible_projects(
         user,
         project_ids=project_ids,
     )
+
+
+async def _roles_for_notifications(
+    project_ids: set[str],
+    user: CurrentUser,
+    settings: Settings,
+) -> dict[str, tuple | None]:
+    """Consulta apenas projetos visíveis e evita excesso de chamadas simultâneas."""
+    relevant_ids = sorted(project_ids.intersection(user.project_ids))[:20]
+    semaphore = asyncio.Semaphore(4)
+
+    async def fetch(project_id: str):
+        async with semaphore:
+            return await get_project_roles(project_id, user, settings)
+
+    roles = await asyncio.gather(*(fetch(project_id) for project_id in relevant_ids))
+    return dict(zip(relevant_ids, roles))
 
 
 class ListResult(BaseModel):
@@ -77,7 +99,16 @@ async def list_notifications(
         )
     except UpstreamUnavailable:
         return ListResult(state="unavailable")
-    return ListResult(state="ok", stale=result.stale, page=personalize_page(result.value, user))
+    role_map = await _roles_for_notifications(
+        {notification.project_id for notification in result.value.items if notification.project_id},
+        user,
+        settings,
+    )
+    return ListResult(
+        state="ok",
+        stale=result.stale,
+        page=personalize_page_for_projects(result.value, user, role_map),
+    )
 
 
 @router.get("/unread-count", response_model=UnreadResult)
@@ -140,7 +171,7 @@ async def mark_all_read(
     )
 
     return {"status": "ok"}
-async def personalized_ws_source(events, user: CurrentUser):
+async def personalized_ws_source(events, user: CurrentUser, settings: Settings | None = None):
     """Aplica a mesma visão por perfil a eventos recebidos em tempo real."""
     async for event in events:
         if event.get("event") == "notification.new" and isinstance(event.get("data"), dict):
@@ -148,7 +179,13 @@ async def personalized_ws_source(events, user: CurrentUser):
                 from app.domain.schemas import Notification
 
                 notification = Notification.model_validate(event["data"])
-                personalized = personalize_notification(notification, user)
+                if settings is not None and notification.project_id:
+                    role_map = await _roles_for_notifications(
+                        {notification.project_id}, user, settings
+                    )
+                else:
+                    role_map = {}
+                personalized = personalize_for_project_roles(notification, user, role_map)
                 yield {**event, "data": personalized.model_dump(mode="json")}
             except (ValueError, TypeError):
                 yield event
@@ -178,6 +215,6 @@ async def notifications_ws(websocket: WebSocket) -> None:
 
     await pump(
         websocket,
-        lambda: personalized_ws_source(client.ws_source(user), user),
+        lambda: personalized_ws_source(client.ws_source(user), user, settings),
         accept=False,
     )
