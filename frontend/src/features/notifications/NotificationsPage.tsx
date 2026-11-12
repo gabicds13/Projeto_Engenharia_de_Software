@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { UnavailableState } from "../../components/UnavailableState";
-import type { Priority, Source } from "../../lib/types";
+import type { Notification, Priority, Source } from "../../lib/types";
 import { NotificationCard } from "./NotificationCard";
 import { useNotifications } from "./NotificationsContext";
 import { priorityLabel, sourceMeta } from "./meta";
@@ -9,6 +9,25 @@ type StatusFilter = "all" | "unread" | "read";
 type SortOrder = "relevance" | "recent";
 const priorityRank: Record<Priority, number> = { critical: 3, high: 2, medium: 1, low: 0 };
 
+// Exemplo exclusivamente visual. Não é enviado à API nem salvo no Neon.
+const demoNotification: Notification = {
+  id: "demo-ia-local",
+  source: "github",
+  type: "pull_request.opened",
+  project_id: "projeto-ficticio",
+  priority: "high",
+  relevance_score: 0.87,
+  reason: "Alteração técnica importante aguardando revisão.",
+  classified_by: "llm",
+  title: "Exemplo: pull request aguardando revisão",
+  body: "Um pull request fictício alterou testes do backend.",
+  summary: "Mudança no backend precisa de revisão técnica.",
+  group_key: "code-review",
+  created_at: new Date().toISOString(),
+  read_at: null,
+  link: null,
+};
+
 export function NotificationsPage() {
   const { items, available, actionError, markRead, markAllRead, wsOpen } = useNotifications();
   const [priority, setPriority] = useState<Priority | "all">("all");
@@ -16,6 +35,7 @@ export function NotificationsPage() {
   const [status, setStatus] = useState<StatusFilter>("all");
   const [sortOrder, setSortOrder] = useState<SortOrder>("relevance");
   const [onlyRelevant, setOnlyRelevant] = useState(false);
+  const [showDemo, setShowDemo] = useState(false);
 
   const filtered = useMemo(
     () =>
@@ -49,13 +69,25 @@ export function NotificationsPage() {
             title={wsOpen ? "Tempo real conectado" : "Reconectando…"}
           />
         </div>
-        <button
-          type="button"
-          onClick={() => void markAllRead()}
-          className="rounded-md bg-primary px-3 py-2 text-sm font-medium text-white hover:bg-primary-hover"
-        >
-          Marcar todas como lidas
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          {import.meta.env.DEV && (
+            <button
+              type="button"
+              aria-pressed={showDemo}
+              onClick={() => setShowDemo((current) => !current)}
+              className="rounded-md border border-border bg-surface px-3 py-2 text-sm font-medium text-text hover:bg-bg"
+            >
+              {showDemo ? "Ocultar exemplo local" : "Ver exemplo de IA (local)"}
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => void markAllRead()}
+            className="rounded-md bg-primary px-3 py-2 text-sm font-medium text-white hover:bg-primary-hover"
+          >
+            Marcar todas como lidas
+          </button>
+        </div>
       </div>
 
       {actionError && (
@@ -99,6 +131,17 @@ export function NotificationsPage() {
           Mostrar apenas relevantes
         </label>
       </div>
+
+      {import.meta.env.DEV && showDemo && (
+        <aside aria-label="Exemplo fictício de classificação por IA" className="flex flex-col gap-2">
+          <p className="rounded-md border border-border bg-surface px-3 py-2 text-sm text-text">
+            <strong>EXEMPLO LOCAL — resposta de IA simulada.</strong>{" "}
+            Nenhuma notificação foi enviada ao Gemini ou salva no Neon.
+            Este exemplo não altera a contagem de não lidas.
+          </p>
+          <NotificationCard notification={demoNotification} />
+        </aside>
+      )}
 
       {filtered.length === 0 ? (
         <p className="rounded-lg border border-border bg-surface p-6 text-center text-text-muted">
