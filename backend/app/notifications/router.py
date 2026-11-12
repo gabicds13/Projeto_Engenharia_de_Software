@@ -115,6 +115,10 @@ async def mark_read(
         user,
         notification_id,
     )
+    get_registry().invalidate(
+        f"notifications:list:{user.user_id}",
+        f"notifications:unread:{user.user_id}",
+    )
 
     return {"status": "ok"}
 
@@ -129,6 +133,10 @@ async def mark_all_read(
     )
 
     await get_notifications_client().mark_all_read(user)
+    get_registry().invalidate(
+        f"notifications:list:{user.user_id}",
+        f"notifications:unread:{user.user_id}",
+    )
 
     return {"status": "ok"}
 # WebSocket fora do prefixo /api para alinhar com o proxy do Vite (/ws).
