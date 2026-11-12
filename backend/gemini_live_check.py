@@ -2,29 +2,26 @@
 
 Executar apenas com credencial administrada por responsável elegível ao serviço.
 Não acessa DATABASE_URL, não publica notificações, não modifica o Neon.
-Usa somente um evento inventado. A chave nunca é exibida nem salva.
+Usa somente um evento inventado. A chave pode vir de backend/.env ou do terminal; nunca é exibida nem salva.
 """
 from __future__ import annotations
 
 import asyncio
-import os
 
 from app.core.config import Settings
 from app.domain.schemas import Priority, Source
 from app.notifications.classifier import classify_notification
 
 
-async def main() -> int:
-    api_key = os.environ.get("NOTIFICATION_AI_API_KEY", "").strip()
-    if not api_key:
-        print("Teste real não executado: falta a credencial do responsável autorizado.")
-        return 2
+def isolated_settings() -> Settings:
+    """Lê apenas a configuração necessária para o teste.
 
-    # Ignora o .env para impedir o uso acidental do Neon ou da configuração local.
-    settings = Settings(
-        _env_file=None,
+    Settings usa as variáveis do terminal ou backend/.env (quando executado
+    dentro de backend); as opções de banco são sobrescritas explicitamente.
+    Este diagnóstico NÃO instancia sessões, clientes de banco ou o BFF.
+    """
+    return Settings(
         notification_ai_enabled=True,
-        notification_ai_api_key=api_key,
         notification_ai_model="gemini-2.5-flash-lite",
         notification_ai_base_url="https://generativelanguage.googleapis.com/v1beta/openai",
         notification_ai_timeout_seconds=30,
@@ -32,6 +29,13 @@ async def main() -> int:
         use_notifications_db=False,
         use_chat_db=False,
     )
+
+
+async def main() -> int:
+    settings = isolated_settings()
+    if not settings.notification_ai_api_key:
+        print("Teste real não executado: falta a credencial do responsável autorizado.")
+        return 2
 
     # Teste inofensivo: não contém dados reais do curso ou dos usuários.
     result = await classify_notification(
