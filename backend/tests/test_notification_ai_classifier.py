@@ -196,18 +196,18 @@ async def test_modelo_nao_pode_rebaixar_prioridade_do_produtor(monkeypatch):
     assert result.relevance_score >= 0.97
 
 
-def test_groqcloud_default_eh_desligado_sem_chave():
+def test_gemini_default_eh_desligado_sem_chave():
     """Preparar o provedor não ativa chamadas externas sem autorização."""
     settings = Settings(_env_file=None)
     assert settings.notification_ai_enabled is False
     assert settings.notification_ai_api_key is None
-    assert settings.notification_ai_base_url == "https://api.groq.com/openai/v1"
-    assert settings.notification_ai_model == "openai/gpt-oss-20b"
+    assert settings.notification_ai_base_url == "https://generativelanguage.googleapis.com/v1beta/openai"
+    assert settings.notification_ai_model == "gemini-2.5-flash-lite"
 
 
 @pytest.mark.asyncio
-async def test_groqcloud_url_e_contrato_json(monkeypatch):
-    """O cliente existente já conversa com a API compatível do Groq."""
+async def test_gemini_url_e_contrato_json(monkeypatch):
+    """O cliente existente usa endpoint compatível de Gemini."""
     captured = {}
 
     class FakeResponse:
@@ -244,8 +244,8 @@ async def test_groqcloud_url_e_contrato_json(monkeypatch):
         incoming_priority=Priority.LOW,
         settings=settings,
     )
-    assert captured["url"] == "https://api.groq.com/openai/v1/chat/completions"
-    assert captured["payload"]["model"] == "openai/gpt-oss-20b"
+    assert captured["url"] == "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions"
+    assert captured["payload"]["model"] == "gemini-2.5-flash-lite"
     assert captured["payload"]["response_format"] == {"type": "json_object"}
     assert result.classified_by == "llm"
     assert result.relevance_score == 0.77
