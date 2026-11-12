@@ -15,6 +15,7 @@ from app.core.config import Settings, get_settings
 from app.core.resilience import UpstreamUnavailable, get_registry
 from app.core.security import (
     CurrentUser,
+    Role,
     get_current_user,
     ws_authenticate_message,
 )
@@ -53,6 +54,14 @@ async def _roles_for_notifications(
 
     roles = await asyncio.gather(*(fetch(project_id) for project_id in relevant_ids))
     return dict(zip(relevant_ids, roles))
+
+
+
+def _local_preview_role(settings: Settings) -> Role | None:
+    """A simulação só existe na instância local, com mocks habilitados."""
+    if settings.app_env != "development" or not settings.use_mocks:
+        return None
+    return Role(settings.notification_preview_role) if settings.notification_preview_role else None
 
 
 class ListResult(BaseModel):
@@ -107,7 +116,9 @@ async def list_notifications(
     return ListResult(
         state="ok",
         stale=result.stale,
-        page=personalize_page_for_projects(result.value, user, role_map),
+        page=personalize_page_for_projects(
+            result.value, user, role_map, preview_role=_local_preview_role(settings)
+        ),
     )
 
 
@@ -185,7 +196,12 @@ async def personalized_ws_source(events, user: CurrentUser, settings: Settings |
                     )
                 else:
                     role_map = {}
-                personalized = personalize_for_project_roles(notification, user, role_map)
+                personalized = personalize_for_project_roles(
+                    notification,
+                    user,
+                    role_map,
+                    preview_role=_local_preview_role(settings) if settings else None,
+                )
                 yield {**event, "data": personalized.model_dump(mode="json")}
             except (ValueError, TypeError):
                 yield event
