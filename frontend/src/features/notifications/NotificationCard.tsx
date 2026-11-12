@@ -46,11 +46,12 @@ export function NotificationCard({ notification, onMarkRead }: Props) {
       <div className="mt-1 flex items-center justify-between">
         <span className="text-xs text-text-muted" title={notification.reason}>
           {notification.classified_by === "llm" ? "Classificado por IA" : "Classificado por regras"}
-          {notification.personal_reason && (
-            <span className="ml-2" title={notification.personal_reason}>
-              · Relevância para seu perfil: {Math.round((notification.personal_relevance_score ?? notification.relevance_score) * 100)}%
-            </span>
-          )}
+          <span
+            className="ml-2"
+            title={notification.personal_reason ?? notification.reason}
+          >
+            · {notification.personal_reason ? "Relevância para seu perfil" : "Relevância geral"}: {Math.round((notification.personal_relevance_score ?? notification.relevance_score) * 100)}%
+          </span>
         </span>
         {!read_at && onMarkRead && (
           <button
