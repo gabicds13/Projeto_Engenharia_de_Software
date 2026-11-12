@@ -280,3 +280,39 @@ notificações no Neon e não dá qualquer permissão nova. Por segurança, a pr
 Se for encontrado um papel real no projeto, ele continua prevalecendo.
 Remova a linha `NOTIFICATION_PREVIEW_ROLE` para voltar ao comportamento normal.
 
+
+
+### Classificação com modelo de IA (opcional)
+
+A classificação automática funciona por regras mesmo sem provedor de IA. Para usar
+um **modelo compatível com Chat Completions e resposta JSON**, configure apenas
+o backend local (`backend/.env`, nunca versionado):
+
+```env
+NOTIFICATION_AI_ENABLED=true
+NOTIFICATION_AI_MODEL=gpt-4.1-mini
+NOTIFICATION_AI_API_KEY=SUA_CHAVE_PRIVADA_AQUI
+NOTIFICATION_AI_BASE_URL=https://api.openai.com/v1
+NOTIFICATION_AI_TIMEOUT_SECONDS=3
+```
+
+**Atenção:** a chave precisa ser de um projeto de API autorizado, com acesso ao
+modelo e eventual cobrança habilitada. A assinatura do ChatGPT não é uma chave
+de API. Não compartilhe valores reais em prints, mensagens, issues ou commits.
+
+O modelo recebe apenas origem, tipo, título, corpo limitado a 1.000 caracteres
+e prioridade declarada do evento. Não envie dados pessoais, credenciais ou
+segredos em notificações de teste. Se o provedor falhar, a notificação é
+classificada por regras locais e segue para armazenamento normalmente.
+
+Para testar, reinicie o backend e envie um **novo** `event_id` pelo endpoint
+`POST /api/integrations/notifications`, preferencialmente primeiro com
+`USE_NOTIFICATIONS_DB=false` num ambiente isolado. Confira na resposta
+`classified_by: "llm"`, `relevance_score` e `reason`. Se retornar
+`classified_by: "rules"`, o fallback foi aplicado; verifique a configuração
+e os logs do backend sem divulgar a chave. Eventos com `event_id` já cadastrado
+podem retornar o registro anterior sem nova classificação.
+
+Para desativar, defina `NOTIFICATION_AI_ENABLED=false` e reinicie o backend.
+Não habilite a integração diretamente no Azure sem revisar privacidade, custos
+e comportamento com os responsáveis pelo projeto.
