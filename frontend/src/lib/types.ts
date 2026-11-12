@@ -18,6 +18,8 @@ export interface Notification {
   type: string;
   priority: Priority;
   relevance_score: number;
+  personal_relevance_score?: number | null;
+  personal_reason?: string | null;
   reason: string;
   classified_by: "llm" | "rules";
   project_id: string;
