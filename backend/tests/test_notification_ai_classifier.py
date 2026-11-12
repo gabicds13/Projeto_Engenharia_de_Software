@@ -7,6 +7,7 @@ import httpx
 import pytest
 
 from app.core.config import Settings
+from app.core.security import Role
 from app.domain.schemas import Priority, Source
 from app.notifications.classifier import (
     classify_notification,
@@ -296,3 +297,86 @@ async def test_json_incompleto_retorna_fallback(monkeypatch):
     assert result.classified_by == "rules"
     assert result.summary == "Revisão concluída"
     assert result.group_key == "code_review"
+
+
+@pytest.mark.asyncio
+async def test_prompt_contexto_tecnico_e_papel_confirmado(monkeypatch):
+    """Só papéis passados internamente entram no contexto da IA."""
+    captured = {}
+
+    class Response:
+        def raise_for_status(self):
+            pass
+
+        def json(self):
+            return {"choices": [{"message": {"content": json.dumps({
+                "priority": "medium",
+                "relevance_score": 0.75,
+                "reason": "Mudança técnica importante.",
+                "summary": "Mudança no backend.",
+                "group_key": "backend-update",
+            })}}]}
+
+    async def fake_post(self, url, headers, json):
+        captured.update(json)
+        return Response()
+
+    monkeypatch.setattr(httpx.AsyncClient, "post", fake_post)
+    result = await classify_notification(
+        source=Source.GITHUB,
+        event_type="commit.pushed",
+        title="Backend atualizado",
+        body="Alteração validada.",
+        incoming_priority=Priority.LOW,
+        settings=Settings(
+            _env_file=None,
+            notification_ai_enabled=True,
+            notification_ai_api_key="fake-key",
+        ),
+        stack=("Python", "FastAPI"),
+        changed_files=("app/main.py",),
+        verified_roles=(Role.DEV,),
+    )
+    context = json.loads(captured["messages"][1]["content"])
+    assert result.classified_by == "llm"
+    assert context["stack"] == ["Python", "FastAPI"]
+    assert context["changed_files"] == ["app/main.py"]
+    assert context["verified_roles"] == ["DEV"]
+    assert "fake-key" not in captured["messages"][1]["content"]
+
+
+@pytest.mark.asyncio
+async def test_sem_papel_confirmado_nao_inventa_rbac(monkeypatch):
+    captured = {}
+
+    class Response:
+        def raise_for_status(self):
+            pass
+
+        def json(self):
+            return {"choices": [{"message": {"content": json.dumps({
+                "priority": "low",
+                "relevance_score": 0.25,
+                "reason": "Informação de baixa urgência.",
+                "summary": "Atualização técnica disponível.",
+                "group_key": "tech-update",
+            })}}]}
+
+    async def fake_post(self, url, headers, json):
+        captured.update(json)
+        return Response()
+
+    monkeypatch.setattr(httpx.AsyncClient, "post", fake_post)
+    await classify_notification(
+        source=Source.CURADORIA,
+        event_type="curation.item",
+        title="Atualização técnica",
+        body="Publicação de documentação.",
+        incoming_priority=Priority.LOW,
+        settings=Settings(
+            _env_file=None,
+            notification_ai_enabled=True,
+            notification_ai_api_key="fake-key",
+        ),
+    )
+    assert json.loads(captured["messages"][1]["content"])["verified_roles"] == []
