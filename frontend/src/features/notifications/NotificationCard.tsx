@@ -22,7 +22,7 @@ export function NotificationCard({ notification, onMarkRead }: Props) {
   const groupLabel = groupKey
     ? groupKey
         .replace(/[_-]+/g, " ")
-        .replace(/(^|\\s)\\S/g, (part) => part.toUpperCase())
+        .replace(/(^|\s)\S/g, (part) => part.toUpperCase())
     : null;
 
   return (
