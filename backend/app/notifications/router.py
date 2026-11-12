@@ -17,6 +17,7 @@ from app.core.security import (
     ws_authenticate_message,
 )
 from app.core.ws_bridge import pump
+from app.notifications.personalization import personalize_page, personalize_notification
 from app.domain.schemas import NotificationPage, Priority, Source, UnreadCount
 
 router = APIRouter(prefix="/api/bff/notifications", tags=["notifications"])
@@ -76,7 +77,7 @@ async def list_notifications(
         )
     except UpstreamUnavailable:
         return ListResult(state="unavailable")
-    return ListResult(state="ok", stale=result.stale, page=result.value)
+    return ListResult(state="ok", stale=result.stale, page=personalize_page(result.value, user))
 
 
 @router.get("/unread-count", response_model=UnreadResult)
@@ -139,6 +140,22 @@ async def mark_all_read(
     )
 
     return {"status": "ok"}
+async def personalized_ws_source(events, user: CurrentUser):
+    """Aplica a mesma visão por perfil a eventos recebidos em tempo real."""
+    async for event in events:
+        if event.get("event") == "notification.new" and isinstance(event.get("data"), dict):
+            try:
+                from app.domain.schemas import Notification
+
+                notification = Notification.model_validate(event["data"])
+                personalized = personalize_notification(notification, user)
+                yield {**event, "data": personalized.model_dump(mode="json")}
+            except (ValueError, TypeError):
+                yield event
+        else:
+            yield event
+
+
 # WebSocket fora do prefixo /api para alinhar com o proxy do Vite (/ws).
 ws_router = APIRouter()
 
@@ -161,6 +178,6 @@ async def notifications_ws(websocket: WebSocket) -> None:
 
     await pump(
         websocket,
-        lambda: client.ws_source(user),
+        lambda: personalized_ws_source(client.ws_source(user), user),
         accept=False,
     )
