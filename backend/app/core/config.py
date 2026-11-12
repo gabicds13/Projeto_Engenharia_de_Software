@@ -41,6 +41,10 @@ class Settings(BaseSettings):
     use_notifications_db: bool = False
     use_chat_db: bool = False
 
+    # Consulta opcional dos papéis REAIS no Módulo 1, independente de USE_MOCKS.
+    # Ative localmente com USE_MODULE1_ROLES=true e login real do Módulo 1.
+    use_module1_roles: bool = False
+
     # Classificação inteligente (desligada até configurar um modelo).
     # Segredos só em variáveis de ambiente; nunca no repositório.
     notification_ai_enabled: bool = False
