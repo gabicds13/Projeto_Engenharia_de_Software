@@ -53,8 +53,10 @@ class Settings(BaseSettings):
     # Segredos só em variáveis de ambiente; nunca no repositório.
     notification_ai_enabled: bool = False
     notification_ai_api_key: str | None = None
-    notification_ai_model: str | None = None
-    notification_ai_base_url: str = "https://api.openai.com/v1"
+    # GroqCloud usa Chat Completions compatível com OpenAI.
+    # A integração continua DESATIVADA até haver uma chave autorizada.
+    notification_ai_model: str | None = "llama-3.3-70b-versatile"
+    notification_ai_base_url: str = "https://api.groq.com/openai/v1"
     notification_ai_timeout_seconds: float = 3.0
 
 
