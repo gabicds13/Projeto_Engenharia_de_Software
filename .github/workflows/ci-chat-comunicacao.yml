@@ -1,9 +1,10 @@
-name: Validate chat-comunicacao
+name: Validate modulo6 features
 
 on:
   push:
     branches:
       - chat-comunicacao
+      - modulo6-proxima-etapa
   pull_request:
     paths:
       - "backend/**"
