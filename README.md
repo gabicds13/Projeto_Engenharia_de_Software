@@ -327,10 +327,25 @@ ou inválido, o sistema aplica regras e preenche `summary` com o título do
 evento e `group_key` com a origem.
 
 Para compatibilidade com notificações anteriores, `summary` e `group_key`
-são **opcionais** no contrato de leitura. Nesta etapa, eles aparecem na resposta
-do POST, mas **ainda não são persistidos no Neon**. Ao reler um registro do banco,
-esses campos podem vir como `null`. A persistência exigirá migração do esquema
-e alterações no cliente de banco, a realizar em uma etapa separada.
+são **opcionais** no contrato de leitura. A migração
+`b8f4d2a19c60` acrescenta as duas colunas opcionais à tabela
+`notifications`. Após aplicar essa migração, novas notificações passam a
+ser persistidas no Neon com resumo e agrupamento; as antigas continuam com
+`null` nesses campos e não são apagadas.
+
+**Como aplicar ao banco existente (somente depois de revisar o destino e ter
+um backup):**
+
+1. Atualize a branch e confira que `backend/.env` aponta para o banco correto.
+2. Na pasta `backend`, execute `py -m alembic current` para consultar a revisão atual.
+3. Revise a migração e aplique `py -m alembic upgrade head`.
+4. Confirme com `py -m alembic current` que está em `b8f4d2a19c60`.
+5. Só depois reinicie o backend que usa `USE_NOTIFICATIONS_DB=true`.
+
+**Não inicie o backend novo contra um banco antigo sem antes aplicar a migração:**
+o ORM passa a consultar as duas colunas novas. A alteração não é aplicada
+automaticamente pelo `git pull` e não foi executada por este assistente
+no seu Neon.
 
 A API de publicação não recebe papéis RBAC verificados. A etapa futura de
 "contexto do usuário" precisa obtê-los de uma fonte autorizada, sem confiar em
