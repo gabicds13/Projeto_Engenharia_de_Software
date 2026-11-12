@@ -6,10 +6,10 @@ from gemini_live_check import isolated_settings
 
 def test_diagnostico_le_env_local_sem_conectar_ao_neon(tmp_path, monkeypatch):
     (tmp_path / ".env").write_text(
-        "NOTIFICATION_AI_API_KEY=chave-ficticia-testes\\n"
-        "DATABASE_URL=postgresql://exemplo-invalido/nao_conectar\\n"
-        "USE_NOTIFICATIONS_DB=true\\n"
-        "NOTIFICATION_AI_ENABLED=false\\n",
+        "NOTIFICATION_AI_API_KEY=chave-ficticia-testes\n"
+        "DATABASE_URL=postgresql://exemplo-invalido/nao_conectar\n"
+        "USE_NOTIFICATIONS_DB=true\n"
+        "NOTIFICATION_AI_ENABLED=false\n",
         encoding="utf-8",
     )
     monkeypatch.chdir(tmp_path)
