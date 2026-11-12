@@ -45,6 +45,8 @@ class Notification(BaseModel):
     personalization_preview: bool = False
     reason: str
     classified_by: Literal["llm", "rules"]
+    summary: str | None = None
+    group_key: str | None = None
     scope: NotificationScope = NotificationScope.PROJECT
     project_id: str | None = None
     target_user_id: str | None = None
