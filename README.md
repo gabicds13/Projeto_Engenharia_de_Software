@@ -316,3 +316,22 @@ podem retornar o registro anterior sem nova classificação.
 Para desativar, defina `NOTIFICATION_AI_ENABLED=false` e reinicie o backend.
 Não habilite a integração diretamente no Azure sem revisar privacidade, custos
 e comportamento com os responsáveis pelo projeto.
+
+
+### Contrato JSON da classificação (etapa de preparação)
+
+O classificador retorna os campos `priority`, `relevance_score`, `reason`,
+`summary` e `group_key`. O último é uma categoria estável de agrupamento,
+como `code-review` ou `github-commit`. Se o provedor devolver JSON incompleto
+ou inválido, o sistema aplica regras e preenche `summary` com o título do
+evento e `group_key` com a origem.
+
+Para compatibilidade com notificações anteriores, `summary` e `group_key`
+são **opcionais** no contrato de leitura. Nesta etapa, eles aparecem na resposta
+do POST, mas **ainda não são persistidos no Neon**. Ao reler um registro do banco,
+esses campos podem vir como `null`. A persistência exigirá migração do esquema
+e alterações no cliente de banco, a realizar em uma etapa separada.
+
+A API de publicação não recebe papéis RBAC verificados. A etapa futura de
+"contexto do usuário" precisa obtê-los de uma fonte autorizada, sem confiar em
+declarações arbitrárias do produtor do evento ou compartilhar dados sensíveis.
