@@ -9,6 +9,8 @@ interface DirectChannel {
   type: string;
   member_ids: string[];
   created_at: string;
+  pending: boolean;
+  needs_my_acceptance: boolean;
 }
 
 interface DirectMessage {
@@ -48,10 +50,13 @@ export function DirectChatPanel({
   const [text, setText] = useState("");
   const [error, setError] = useState("");
   const [creating, setCreating] = useState(false);
+  const [accepting, setAccepting] = useState(false);
   const seen = useRef<Set<string>>(new Set());
   const bottomRef = useRef<HTMLDivElement>(null);
 
   const basePath = `/api/bff/chat/rooms/${encodeURIComponent(projectId)}/direct`;
+  const selectedChannel = channels.find((channel) => channel.id === channelId);
+  const isPending = selectedChannel?.pending ?? false;
 
   const loadChannels = useCallback(async () => {
     try {
@@ -59,6 +64,7 @@ export function DirectChatPanel({
       setChannels(list);
       const counts = await Promise.all(
         list.map(async (channel) => {
+          if (channel.pending) return [channel.id, 0] as const;
           try {
             const result = await api.get<{ unread: number }>(
               `${basePath}/${encodeURIComponent(channel.id)}/unread`,
@@ -77,7 +83,7 @@ export function DirectChatPanel({
   }, [basePath]);
 
   const loadMessages = useCallback(async () => {
-    if (!channelId) return;
+    if (!channelId || isPending) return;
     try {
       const list = await api.get<DirectMessage[]>(
         `${basePath}/${encodeURIComponent(channelId)}/messages`,
@@ -88,17 +94,17 @@ export function DirectChatPanel({
     } catch {
       setError("Não foi possível carregar o histórico desta conversa.");
     }
-  }, [basePath, channelId]);
+  }, [basePath, channelId, isPending]);
 
   const markRead = useCallback(async () => {
-    if (!channelId) return;
+    if (!channelId || isPending) return;
     try {
       await api.post(`${basePath}/${encodeURIComponent(channelId)}/read`);
       setUnread((previous) => ({ ...previous, [channelId]: 0 }));
     } catch {
       // Uma falha ao marcar como lida não interrompe a conversa.
     }
-  }, [basePath, channelId]);
+  }, [basePath, channelId, isPending]);
 
   useEffect(() => {
     setChannels([]);
@@ -113,9 +119,11 @@ export function DirectChatPanel({
   useEffect(() => {
     seen.current.clear();
     setMessages([]);
-    void loadMessages();
-    void markRead();
-  }, [channelId, loadMessages, markRead]);
+    if (!isPending) {
+      void loadMessages();
+      void markRead();
+    }
+  }, [channelId, isPending, loadMessages, markRead]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -135,7 +143,7 @@ export function DirectChatPanel({
 
   const token = getToken();
   const url =
-    channelId && token
+    channelId && token && !isPending
       ? wsUrl(
           `/ws/chat/direct?project_id=${encodeURIComponent(projectId)}&channel_id=${encodeURIComponent(channelId)}`,
         )
@@ -144,7 +152,7 @@ export function DirectChatPanel({
   const socketStatus = useWebSocket(url, {
     onMessage,
     onReconnect: loadMessages,
-    enabled: !!channelId && !!token,
+    enabled: !!channelId && !!token && !isPending,
     authToken: token ?? undefined,
   });
 
@@ -171,10 +179,24 @@ export function DirectChatPanel({
     }
   };
 
+  const acceptInvitation = async () => {
+    if (!channelId || !selectedChannel?.needs_my_acceptance) return;
+    setAccepting(true);
+    setError("");
+    try {
+      await api.post(`${basePath}/${encodeURIComponent(channelId)}/accept`);
+      await loadChannels();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Não foi possível aceitar o convite.");
+    } finally {
+      setAccepting(false);
+    }
+  };
+
   const send = async (event: React.FormEvent) => {
     event.preventDefault();
     const content = text.trim();
-    if (!content || !channelId) return;
+    if (!content || !channelId || isPending) return;
     try {
       const message = await api.post<DirectMessage>(
         `${basePath}/${encodeURIComponent(channelId)}/messages`,
@@ -227,7 +249,14 @@ export function DirectChatPanel({
                   : "bg-bg text-text hover:bg-border"
               }`}
             >
-              <span className="truncate">@{otherMember(channel, currentUserId)}</span>
+              <span className="min-w-0">
+                <span className="block truncate">@{otherMember(channel, currentUserId)}</span>
+                {channel.pending && (
+                  <span className="block text-xs opacity-75">
+                    {channel.needs_my_acceptance ? "Convite recebido" : "Aguardando aceite"}
+                  </span>
+                )}
+              </span>
               {(unread[channel.id] ?? 0) > 0 && (
                 <span className="ml-2 rounded-full bg-priority-critical px-2 py-0.5 text-xs text-white">
                   {unread[channel.id]}
@@ -241,15 +270,40 @@ export function DirectChatPanel({
       <section className="flex min-h-[60vh] flex-col rounded-lg border border-border bg-surface">
         <header className="flex items-center justify-between border-b border-border px-4 py-3">
           <h2 className="font-semibold text-text">
-            {channelId ? "Conversa privada" : "Selecione ou inicie uma conversa"}
+            {selectedChannel?.needs_my_acceptance
+              ? "Convite para conversa privada"
+              : isPending
+                ? "Aguardando o aceite do integrante"
+                : channelId
+                  ? "Conversa privada"
+                  : "Selecione ou inicie uma conversa"}
           </h2>
-          {channelId && (
+          {channelId && !isPending && (
             <span className="text-xs text-text-muted">
               {socketStatus === "open" ? "Conectado" : "Reconectando..."}
             </span>
           )}
         </header>
         {error && <p role="alert" className="m-3 rounded-md border border-border p-2 text-sm text-text">{error}</p>}
+        {isPending && (
+          <div className="m-3 rounded-md border border-border bg-bg p-3 text-sm text-text">
+            {selectedChannel?.needs_my_acceptance ? (
+              <div className="flex flex-wrap items-center gap-3">
+                <span>Você recebeu um convite. Aceite para começar a conversa.</span>
+                <button
+                  type="button"
+                  disabled={accepting}
+                  onClick={() => void acceptInvitation()}
+                  className="rounded-md bg-primary px-3 py-2 text-white disabled:opacity-60"
+                >
+                  {accepting ? "Aceitando..." : "Aceitar convite"}
+                </button>
+              </div>
+            ) : (
+              <p>O convite foi enviado. As mensagens serão liberadas quando o destinatário aceitar.</p>
+            )}
+          </div>
+        )}
         <div className="flex-1 space-y-3 overflow-y-auto p-4">
           {messages.map((message) => (
             <div
@@ -272,13 +326,13 @@ export function DirectChatPanel({
           <input
             value={text}
             onChange={(event) => setText(event.target.value)}
-            disabled={!channelId}
+            disabled={!channelId || isPending}
             placeholder="Digite uma mensagem privada..."
             className="min-w-0 flex-1 rounded-md border border-border bg-bg px-3 py-2 text-sm text-text disabled:opacity-60"
           />
           <button
             type="submit"
-            disabled={!channelId || !text.trim()}
+            disabled={!channelId || isPending || !text.trim()}
             className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
           >
             Enviar
