@@ -1,8 +1,6 @@
 """Fluxo HTTP real de convites, usando SQLite e usuários autenticados simulados."""
 from __future__ import annotations
 
-from datetime import UTC, datetime
-
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
