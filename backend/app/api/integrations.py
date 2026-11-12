@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, Header, HTTPException
 from pydantic import BaseModel
 
 from app.clients import get_notifications_client
+from app.notifications.classifier import classify_notification
 from app.core.config import Settings, get_settings
 from app.domain.schemas import (
     Notification,
@@ -52,6 +53,15 @@ async def publish_notification(
             detail="project_id é obrigatório para notificações de projeto.",
         )
 
+    classification = await classify_notification(
+        source=data.source,
+        event_type=data.type,
+        title=data.title,
+        body=data.body,
+        incoming_priority=data.priority,
+        settings=settings,
+    )
+
     notification = Notification(
         id=str(uuid4()),
         event_id=data.event_id,
@@ -63,10 +73,10 @@ async def publish_notification(
         ),
         source=data.source,
         type=data.type,
-        priority=data.priority,
-        relevance_score=0.5,
-        reason="Notificação recebida por integração externa.",
-        classified_by="rules",
+        priority=classification.priority,
+        relevance_score=classification.relevance_score,
+        reason=classification.reason,
+        classified_by=classification.classified_by,
         title=data.title,
         body=data.body,
         link=data.link,
