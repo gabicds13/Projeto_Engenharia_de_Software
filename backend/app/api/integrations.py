@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, Header, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.clients import get_notifications_client
 from app.notifications.classifier import classify_notification
@@ -32,6 +32,10 @@ class NotificationInput(BaseModel):
     body: str
     priority: Priority = Priority.MEDIUM
     link: str | None = None
+    # Contexto técnico do produtor autenticado pela chave de integração.
+    # Nunca aceitar papéis RBAC enviados livremente neste endpoint.
+    stack: list[str] = Field(default_factory=list, max_length=8)
+    changed_files: list[str] = Field(default_factory=list, max_length=15)
 
 
 @router.post("/notifications", response_model=Notification)
@@ -60,6 +64,8 @@ async def publish_notification(
         body=data.body,
         incoming_priority=data.priority,
         settings=settings,
+        stack=tuple(data.stack),
+        changed_files=tuple(data.changed_files),
     )
 
     notification = Notification(
