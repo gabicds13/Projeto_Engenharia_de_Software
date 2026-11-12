@@ -8,10 +8,9 @@ import pytest
 from app.core.security import CurrentUser, Role
 from app.domain.schemas import Notification, NotificationPage, Priority, Source
 from app.notifications.personalization import (
-    notification_sort_key,
     personalize_notification,
     personalize_page,
-    )
+ )
 from app.notifications.router import personalized_ws_source
 
 
