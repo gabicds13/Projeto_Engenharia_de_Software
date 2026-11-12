@@ -8,7 +8,7 @@ import { priorityLabel, sourceMeta } from "./meta";
 type StatusFilter = "all" | "unread" | "read";
 
 export function NotificationsPage() {
-  const { items, available, markRead, markAllRead, wsOpen } = useNotifications();
+  const { items, available, actionError, markRead, markAllRead, wsOpen } = useNotifications();
   const [priority, setPriority] = useState<Priority | "all">("all");
   const [source, setSource] = useState<Source | "all">("all");
   const [status, setStatus] = useState<StatusFilter>("all");
@@ -45,6 +45,12 @@ export function NotificationsPage() {
           Marcar todas como lidas
         </button>
       </div>
+
+      {actionError && (
+        <p role="alert" className="rounded-md border border-priority-critical/40 bg-priority-critical/10 p-3 text-sm text-text">
+          {actionError}
+        </p>
+      )}
 
       <div className="flex flex-wrap gap-2">
         <Select value={priority} onChange={(v) => setPriority(v as Priority | "all")}>
