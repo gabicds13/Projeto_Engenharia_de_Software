@@ -380,3 +380,53 @@ async def test_sem_papel_confirmado_nao_inventa_rbac(monkeypatch):
         ),
     )
     assert json.loads(captured["messages"][1]["content"])["verified_roles"] == []
+
+
+@pytest.mark.asyncio
+async def test_diagnostico_http_403_nao_revela_resposta_ou_chave(monkeypatch, caplog):
+    async def fake_post(self, url, headers, json):
+        request = httpx.Request("POST", "https://example.invalid/v1/chat/completions")
+        response = httpx.Response(403, request=request, text="private-secret-provider-response")
+        raise httpx.HTTPStatusError("invalid", request=request, response=response)
+
+    monkeypatch.setattr(httpx.AsyncClient, "post", fake_post)
+    result = await classify_notification(
+        source=Source.GITHUB,
+        event_type="commit.pushed",
+        title="Alteração",
+        body="Evento fictício",
+        incoming_priority=Priority.MEDIUM,
+        settings=Settings(
+            _env_file=None,
+            notification_ai_enabled=True,
+            notification_ai_api_key="chave-ficticia-super-secreta",
+        ),
+    )
+    assert result.classified_by == "rules"
+    assert result.diagnostic == "http_status_403"
+    assert "private-secret-provider-response" not in caplog.text
+    assert "chave-ficticia-super-secreta" not in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_diagnostico_conexao_interrompida_nao_exibe_segredos(monkeypatch, caplog):
+    async def fake_post(self, url, headers, json):
+        raise httpx.ConnectError("Connection reset com token falso")
+
+    monkeypatch.setattr(httpx.AsyncClient, "post", fake_post)
+    result = await classify_notification(
+        source=Source.GITHUB,
+        event_type="commit.pushed",
+        title="Alteração",
+        body="Evento fictício",
+        incoming_priority=Priority.MEDIUM,
+        settings=Settings(
+            _env_file=None,
+            notification_ai_enabled=True,
+            notification_ai_api_key="minha-chave-ficticia",
+        ),
+    )
+    assert result.classified_by == "rules"
+    assert result.diagnostic == "transport_ConnectError"
+    assert "token falso" not in caplog.text
+    assert "minha-chave-ficticia" not in caplog.text
