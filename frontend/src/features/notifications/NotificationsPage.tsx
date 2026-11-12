@@ -6,12 +6,16 @@ import { useNotifications } from "./NotificationsContext";
 import { priorityLabel, sourceMeta } from "./meta";
 
 type StatusFilter = "all" | "unread" | "read";
+type SortOrder = "relevance" | "recent";
+const priorityRank: Record<Priority, number> = { critical: 3, high: 2, medium: 1, low: 0 };
 
 export function NotificationsPage() {
   const { items, available, actionError, markRead, markAllRead, wsOpen } = useNotifications();
   const [priority, setPriority] = useState<Priority | "all">("all");
   const [source, setSource] = useState<Source | "all">("all");
   const [status, setStatus] = useState<StatusFilter>("all");
+  const [sortOrder, setSortOrder] = useState<SortOrder>("relevance");
+  const [onlyRelevant, setOnlyRelevant] = useState(false);
 
   const filtered = useMemo(
     () =>
@@ -20,9 +24,17 @@ export function NotificationsPage() {
         if (source !== "all" && n.source !== source) return false;
         if (status === "unread" && n.read_at) return false;
         if (status === "read" && !n.read_at) return false;
+        if (onlyRelevant && n.priority !== "critical" && (n.personal_relevance_score ?? n.relevance_score) < 0.65) return false;
         return true;
+      }).sort((a, b) => {
+        const dateDiff = new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+        if (sortOrder === "recent") return dateDiff;
+        const priorityDiff = priorityRank[b.priority] - priorityRank[a.priority];
+        if (priorityDiff !== 0) return priorityDiff;
+        const scoreDiff = (b.personal_relevance_score ?? b.relevance_score) - (a.personal_relevance_score ?? a.relevance_score);
+        return scoreDiff || dateDiff;
       }),
-    [items, priority, source, status],
+    [items, priority, source, status, sortOrder, onlyRelevant],
   );
 
   if (!available) return <UnavailableState label="Notificações" />;
@@ -74,6 +86,18 @@ export function NotificationsPage() {
           <option value="unread">Não lidas</option>
           <option value="read">Lidas</option>
         </Select>
+        <Select value={sortOrder} onChange={(v) => setSortOrder(v as SortOrder)}>
+          <option value="relevance">Mais relevantes primeiro</option>
+          <option value="recent">Mais recentes primeiro</option>
+        </Select>
+        <label className="flex items-center gap-2 text-sm text-text-muted">
+          <input
+            type="checkbox"
+            checked={onlyRelevant}
+            onChange={(e) => setOnlyRelevant(e.target.checked)}
+          />
+          Mostrar apenas relevantes
+        </label>
       </div>
 
       {filtered.length === 0 ? (
