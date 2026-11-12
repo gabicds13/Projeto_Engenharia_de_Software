@@ -45,6 +45,10 @@ class Settings(BaseSettings):
     # Ative localmente com USE_MODULE1_ROLES=true e login real do Módulo 1.
     use_module1_roles: bool = False
 
+    # Teste visual de relevância, somente em desenvolvimento e com mocks.
+    # Não altera o papel real do usuário nem qualquer permissão.
+    notification_preview_role: Literal["PO", "PM", "DEV"] | None = None
+
     # Classificação inteligente (desligada até configurar um modelo).
     # Segredos só em variáveis de ambiente; nunca no repositório.
     notification_ai_enabled: bool = False
