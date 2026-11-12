@@ -284,21 +284,24 @@ Remova a linha `NOTIFICATION_PREVIEW_ROLE` para voltar ao comportamento normal.
 
 ### Classificação com modelo de IA (opcional)
 
-A classificação automática funciona por regras mesmo sem provedor de IA. Para usar
-um **modelo GroqCloud compatível com Chat Completions e resposta JSON**, configure apenas
-o backend local (`backend/.env`, nunca versionado):
+A classificação automática funciona por regras mesmo sem provedor de IA.
+O provedor padrão da integração opcional é o **Google Gemini**, via API
+compatível com Chat Completions. As credenciais devem ser administradas por
+responsável autorizado, fora do repositório (`backend/.env` local ou gerenciador de segredos):
 
 ```env
 NOTIFICATION_AI_ENABLED=true
-NOTIFICATION_AI_MODEL=openai/gpt-oss-20b
+NOTIFICATION_AI_MODEL=gemini-2.5-flash-lite
 NOTIFICATION_AI_API_KEY=SUA_CHAVE_PRIVADA_AQUI
-NOTIFICATION_AI_BASE_URL=https://api.groq.com/openai/v1
+NOTIFICATION_AI_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai
 NOTIFICATION_AI_TIMEOUT_SECONDS=3
 ```
 
-**Atenção:** a chave precisa ser de um projeto de API autorizado, com acesso ao
-modelo e eventual cobrança habilitada. A assinatura do ChatGPT não é uma chave
-de API. Não compartilhe valores reais em prints, mensagens, issues ou commits.
+**Atenção:** esta configuração apenas seleciona um provedor, não habilita
+a API, não confirma cotas gratuitas e não inicia faturamento. É necessária uma
+credencial de projeto autorizado. Nunca compartilhe chaves em prints,
+mensagens, issues ou commits. Consulte as condições de privacidade e uso
+do serviço antes de transmitir qualquer conteúdo real.
 
 O modelo recebe apenas origem, tipo, título, corpo limitado a 1.000 caracteres
 e prioridade declarada do evento. Não envie dados pessoais, credenciais ou
