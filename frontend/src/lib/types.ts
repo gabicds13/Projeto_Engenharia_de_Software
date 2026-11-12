@@ -23,6 +23,8 @@ export interface Notification {
   personalization_preview?: boolean;
   reason: string;
   classified_by: "llm" | "rules";
+  summary?: string | null;
+  group_key?: string | null;
   project_id: string;
   title: string;
   body: string;
