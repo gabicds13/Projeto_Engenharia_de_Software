@@ -20,6 +20,7 @@ export interface Notification {
   relevance_score: number;
   personal_relevance_score?: number | null;
   personal_reason?: string | null;
+  personalization_preview?: boolean;
   reason: string;
   classified_by: "llm" | "rules";
   project_id: string;
