@@ -2,16 +2,18 @@
 from __future__ import annotations
 
 from dataclasses import replace
+from datetime import UTC, datetime
 import asyncio
 from typing import Literal
 
 from fastapi import APIRouter, Depends, Query, WebSocket
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.clients import get_notifications_client
-from app.clients.projects_client import list_accessible_project_ids
+from app.clients.projects_client import ensure_project_access, list_accessible_project_ids
 from app.clients.project_roles_client import get_project_roles
 from app.core.config import Settings, get_settings
+from app.notifications.classifier import classify_notification
 from app.core.resilience import UpstreamUnavailable, get_registry
 from app.core.security import (
     CurrentUser,
@@ -24,7 +26,7 @@ from app.notifications.personalization import (
     personalize_page_for_projects,
     personalize_for_project_roles,
 )
-from app.domain.schemas import NotificationPage, Priority, Source, UnreadCount
+from app.domain.schemas import Notification, NotificationPage, NotificationScope, Priority, Source, UnreadCount
 
 router = APIRouter(prefix="/api/bff/notifications", tags=["notifications"])
 async def _user_with_accessible_projects(
@@ -76,6 +78,90 @@ class UnreadResult(BaseModel):
     state: Literal["ok", "unavailable"] = "ok"
     stale: bool = False
     count: UnreadCount | None = None
+
+
+class ContextPreviewInput(BaseModel):
+    """Dados fictícios ou de evento fornecidos pelo usuário autenticado.
+
+    Papéis não são aceitos no corpo: devem vir do Módulo 1.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    project_id: str = Field(min_length=1, max_length=100)
+    source: Source
+    event_type: str = Field(min_length=1, max_length=100)
+    title: str = Field(min_length=1, max_length=255)
+    body: str = Field(max_length=1000)
+    priority: Priority = Priority.MEDIUM
+    stack: list[str] = Field(default_factory=list, max_length=8)
+    changed_files: list[str] = Field(default_factory=list, max_length=15)
+
+
+class ContextPreviewResult(BaseModel):
+    """Classificação personalizada em memória: nunca é salva no Neon."""
+
+    verified_roles: list[Role]
+    roles_verified: bool
+    notification: Notification
+
+
+@router.post("/context-preview", response_model=ContextPreviewResult)
+async def preview_notification_with_verified_roles(
+    data: ContextPreviewInput,
+    user: CurrentUser = Depends(get_current_user),
+    settings: Settings = Depends(get_settings),
+) -> ContextPreviewResult:
+    """Inclui apenas papéis confirmados pelo Módulo 1 no prompt da IA.
+
+    A classificação do evento persistido é global; esta prévia é por usuário
+    e não modifica papéis, notificações, contadores ou banco de dados.
+    """
+    await ensure_project_access(data.project_id, user, settings)
+
+    roles = await get_project_roles(data.project_id, user, settings)
+    verified_roles = roles or ()
+
+    classification = await classify_notification(
+        source=data.source,
+        event_type=data.event_type,
+        title=data.title,
+        body=data.body,
+        incoming_priority=data.priority,
+        settings=settings,
+        stack=tuple(data.stack),
+        changed_files=tuple(data.changed_files),
+        verified_roles=verified_roles,
+    )
+
+    preview = Notification(
+        id="context-preview-only",
+        project_id=data.project_id,
+        scope=NotificationScope.PROJECT,
+        source=data.source,
+        type=data.event_type,
+        priority=classification.priority,
+        relevance_score=classification.relevance_score,
+        reason=classification.reason,
+        classified_by=classification.classified_by,
+        summary=classification.summary,
+        group_key=classification.group_key,
+        title=data.title,
+        body=data.body,
+        created_at=datetime.now(UTC),
+    )
+    # Mesmo um papel de desenvolvimento no JWT não substitui papéis do Módulo 1.
+    personalized = personalize_for_project_roles(
+        preview,
+        replace(user, role=None),
+        {data.project_id: roles},
+    )
+
+    return ContextPreviewResult(
+        verified_roles=list(verified_roles),
+        roles_verified=roles is not None,
+        notification=personalized,
+    )
 
 
 @router.get("", response_model=ListResult)
