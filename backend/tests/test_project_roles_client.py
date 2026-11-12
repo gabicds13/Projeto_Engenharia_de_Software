@@ -33,7 +33,7 @@ def current_user() -> CurrentUser:
 
 
 def settings() -> Settings:
-    return Settings(_env_file=None, use_mocks=False)
+    return Settings(_env_file=None, use_mocks=True, use_module1_roles=True)
 
 
 def notification(project_id: str, source: Source = Source.CODE_REVIEW) -> Notification:
@@ -159,3 +159,44 @@ def test_papeis_multiplos_usam_maior_relevancia():
     )
     assert personalized.items[0].personal_relevance_score == 0.68
     assert n.personal_relevance_score is None
+
+@pytest.mark.asyncio
+async def test_flag_desligada_nao_consulta_api_mesmo_com_mocks_desligados(monkeypatch):
+    async def forbidden_call(self, *args, **kwargs):
+        raise AssertionError("O Módulo 1 não deveria ser consultado")
+
+    monkeypatch.setattr(httpx.AsyncClient, "get", forbidden_call)
+    config = Settings(_env_file=None, use_mocks=False, use_module1_roles=False)
+    result = await get_project_roles("project-A", current_user(), config)
+    assert result is None
+
+
+@pytest.mark.asyncio
+async def test_flag_ligada_funciona_com_mocks_ativos(monkeypatch):
+    class Response:
+        status_code = 200
+
+        def json(self):
+            return {
+                "items": [{"user_id": "user-1", "roles": ["Desenvolvedor"], "is_owner": True}],
+                "total": 1,
+            }
+
+    async def fake_get(self, url, **kwargs):
+        assert "/projects/project-A/members" in url
+        return Response()
+
+    monkeypatch.setattr(httpx.AsyncClient, "get", fake_get)
+    result = await get_project_roles("project-A", current_user(), settings())
+    assert result == (Role.DEV,)
+
+
+@pytest.mark.asyncio
+async def test_flag_ligada_sem_token_nao_consulta_api(monkeypatch):
+    async def forbidden_call(self, *args, **kwargs):
+        raise AssertionError("A API não pode ser chamada sem token")
+
+    monkeypatch.setattr(httpx.AsyncClient, "get", forbidden_call)
+    user = CurrentUser(user_id="user-1", role=None, project_ids=("project-A",))
+    result = await get_project_roles("project-A", user, settings())
+    assert result is None
