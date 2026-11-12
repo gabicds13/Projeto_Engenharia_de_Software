@@ -65,7 +65,9 @@ async def get_project_roles(
     A propriedade is_owner NÃO é convertida em PO: dono do projeto e
     Product Owner são coisas diferentes.
     """
-    if not user.access_token or settings.use_mocks:
+    # Este recurso é independente de USE_MOCKS: a consulta real ocorre
+    # somente com a opção explícita habilitada e um JWT autenticado.
+    if not settings.use_module1_roles or not user.access_token:
         return None
 
     key = (user.user_id, project_id)
