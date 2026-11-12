@@ -68,6 +68,17 @@ class NotificationModel(Base):
         String(20),
     )
 
+    # Nullable para permitir os registros anteriores à classificação estruturada.
+    summary: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+    )
+
+    group_key: Mapped[str | None] = mapped_column(
+        String(50),
+        nullable=True,
+    )
+
     title: Mapped[str] = mapped_column(
         String(255),
     )
