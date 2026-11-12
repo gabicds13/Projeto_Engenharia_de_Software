@@ -467,8 +467,11 @@ async def direct_chat_ws(
                 channel_id,
                 user.user_id,
             )
+            from app.chat.service import _get_channel
+            _get_channel(db, channel_id, project_id)
+            pending = has_pending_members(db, channel_id)
 
-        if not member or has_pending_members(db, channel_id):
+        if not member or pending:
             await websocket.close(code=1008)
             return
 
