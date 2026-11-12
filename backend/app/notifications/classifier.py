@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import json
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 import httpx
 from pydantic import BaseModel, Field, ValidationError
@@ -61,6 +61,8 @@ class Classification:
     classified_by: str
     summary: str = ""
     group_key: str = "general"
+    # Só para diagnóstico interno, nunca persiste em notificações.
+    diagnostic: str | None = None
 
 
 class _ModelResult(BaseModel):
@@ -206,7 +208,23 @@ async def classify_notification(
             summary=result.summary,
             group_key=result.group_key,
         )
-    except (httpx.HTTPError, KeyError, IndexError, TypeError, ValueError, ValidationError):
-        # Não interrompe o chat nem a ingestão quando o provedor está fora do ar.
-        logger.warning("Modelo de classificação indisponível; usando regras locais.")
-        return fallback
+    except httpx.HTTPStatusError as exc:
+        # Nunca registrar o corpo da resposta, headers ou URLs com possíveis segredos.
+        code = exc.response.status_code
+        logger.warning("Classificação externa retornou HTTP %d; usando regras locais.", code)
+        return replace(fallback, diagnostic=f"http_status_{code}")
+    except httpx.TimeoutException:
+        logger.warning("Tempo limite da classificação externa; usando regras locais.")
+        return replace(fallback, diagnostic="timeout")
+    except httpx.TransportError as exc:
+        # Nome da classe é seguro; str(exc) pode incluir detalhes internos.
+        failure = type(exc).__name__
+        logger.warning("Falha de transporte %s na classificação externa; usando regras locais.", failure)
+        return replace(fallback, diagnostic=f"transport_{failure}")
+    except httpx.HTTPError as exc:
+        failure = type(exc).__name__
+        logger.warning("Falha HTTP %s na classificação externa; usando regras locais.", failure)
+        return replace(fallback, diagnostic=f"http_client_{failure}")
+    except (KeyError, IndexError, TypeError, ValueError, ValidationError):
+        logger.warning("Resposta da IA não corresponde ao JSON esperado; usando regras locais.")
+        return replace(fallback, diagnostic="invalid_model_response")
