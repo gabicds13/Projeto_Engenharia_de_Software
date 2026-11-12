@@ -44,6 +44,7 @@ class Notification(BaseModel):
     classified_by: Literal["llm", "rules"]
     scope: NotificationScope = NotificationScope.PROJECT
     project_id: str | None = None
+    target_user_id: str | None = None
     title: str
     body: str
     link: str | None = None

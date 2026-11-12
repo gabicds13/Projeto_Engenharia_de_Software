@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import AsyncIterator, Callable
+from collections.abc import AsyncIterator, Callable
 
 from fastapi import WebSocket, WebSocketDisconnect
 
@@ -41,19 +41,19 @@ async def pump(
     forward_task = asyncio.create_task(forward())
     drain_task = asyncio.create_task(drain())
     try:
-        done, pending = await asyncio.wait(
+        _done, pending = await asyncio.wait(
             {forward_task, drain_task}, return_when=asyncio.FIRST_COMPLETED
         )
         for task in pending:
             task.cancel()
     except WebSocketDisconnect:
         pass
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         logger.warning("ws bridge encerrada: %s", exc)
     finally:
         aclose = getattr(source, "aclose", None)
         if aclose is not None:
             try:
                 await aclose()
-            except Exception:  # noqa: BLE001
+            except Exception:  
                 pass

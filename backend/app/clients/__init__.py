@@ -6,9 +6,15 @@ de chat, notificações marcadas como lidas etc.).
 from __future__ import annotations
 
 from functools import lru_cache
-from app.clients.database_notifications_client import DatabaseNotificationsClient
-from app.clients.backlog_client import BacklogClient, HttpBacklogClient, MockBacklogClient
+
+from app.clients.backlog_client import (
+    BacklogClient,
+    HttpBacklogClient,
+    MockBacklogClient,
+)
 from app.clients.chat_client import ChatClient, HttpChatClient, MockChatClient
+from app.clients.database_chat_client import DatabaseChatClient
+from app.clients.database_notifications_client import DatabaseNotificationsClient
 from app.clients.github_client import GithubClient, HttpGithubClient, MockGithubClient
 from app.clients.notifications_client import (
     HttpNotificationsClient,
@@ -46,4 +52,12 @@ def get_notifications_client() -> NotificationsClient:
 @lru_cache
 def get_chat_client() -> ChatClient:
     s = get_settings()
-    return MockChatClient() if s.use_mocks else HttpChatClient(s.chat_url)
+
+    if s.use_chat_db:
+        return DatabaseChatClient()
+
+    return (
+        MockChatClient()
+        if s.use_mocks
+        else HttpChatClient(s.chat_url)
+    )

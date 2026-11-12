@@ -22,6 +22,7 @@ interface NotificationsState {
   items: Notification[];
   unreadTotal: number;
   available: boolean;
+  actionError: string | null;
   wsOpen: boolean;
   toasts: Notification[];
   refresh: () => Promise<void>;
@@ -38,15 +39,21 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
   const [unreadTotal, setUnreadTotal] = useState(0);
   const [available, setAvailable] = useState(true);
   const [toasts, setToasts] = useState<Notification[]>([]);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const refreshRequest = useRef(0);
+  const pendingReads = useRef<Set<string>>(new Set());
+  const pendingReadAll = useRef(false);
   const seen = useRef<Set<string>>(new Set());
   const hydrated = useRef(false);
 
   const refresh = useCallback(
     async (showRecoveredToasts = false) => {
       if (!user) return;
+      const requestId = ++refreshRequest.current;
 
       try {
         const list = await api.get<ListResult>("/api/bff/notifications");
+        if (requestId !== refreshRequest.current) return;
 
         if (list.state === "unavailable" || !list.page) {
           setAvailable(false);
@@ -85,6 +92,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
         const unread = await api.get<UnreadResult>(
           "/api/bff/notifications/unread-count",
         );
+        if (requestId !== refreshRequest.current) return;
 
         setUnreadTotal(
           unread.state === "ok" ? unread.count?.total ?? 0 : 0,
@@ -92,7 +100,9 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
 
         hydrated.current = true;
       } catch {
-        setAvailable(false);
+        if (requestId === refreshRequest.current) {
+          setAvailable(false);
+        }
       }
     },
     [user],
@@ -100,16 +110,56 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
 
   const markRead = useCallback(
     async (id: string) => {
-      await api.patch(`/api/bff/notifications/${id}`);
-      await refresh();
+      if (pendingReads.current.has(id) || pendingReadAll.current) return;
+      const unread = items.some((item) => item.id === id && !item.read_at);
+      if (!unread) return;
+
+      pendingReads.current.add(id);
+      setActionError(null);
+      try {
+        await api.patch(`/api/bff/notifications/${id}`);
+
+        // Atualiza a lista e o contador sem depender de um novo GET.
+        // Invalida buscas antigas para não sobrescrever o estado recém-alterado.
+        refreshRequest.current += 1;
+        const readAt = new Date().toISOString();
+        setItems((previous) =>
+          previous.map((item) =>
+            item.id === id ? { ...item, read_at: readAt } : item,
+          ),
+        );
+        setUnreadTotal((previous) => Math.max(0, previous - 1));
+      } catch {
+        setActionError("Não foi possível marcar esta notificação como lida.");
+      } finally {
+        pendingReads.current.delete(id);
+      }
     },
-    [refresh],
+    [items],
   );
 
   const markAllRead = useCallback(async () => {
-    await api.post("/api/bff/notifications/read-all");
-    await refresh();
-  }, [refresh]);
+    if (pendingReadAll.current) return;
+    pendingReadAll.current = true;
+    setActionError(null);
+    try {
+      await api.post("/api/bff/notifications/read-all");
+
+      refreshRequest.current += 1;
+      const readAt = new Date().toISOString();
+      setItems((previous) =>
+        previous.map((item) => ({
+          ...item,
+          read_at: item.read_at ?? readAt,
+        })),
+      );
+      setUnreadTotal(0);
+    } catch {
+      setActionError("Não foi possível marcar todas as notificações como lidas.");
+    } finally {
+      pendingReadAll.current = false;
+    }
+  }, []);
 
   const dismissToast = useCallback(
     (id: string) => setToasts((t) => t.filter((n) => n.id !== id)),
@@ -159,6 +209,7 @@ const status = useWebSocket(socketUrl, {
       items,
       unreadTotal,
       available,
+      actionError,
       wsOpen: status === "open",
       toasts,
       refresh,
@@ -166,7 +217,7 @@ const status = useWebSocket(socketUrl, {
       markAllRead,
       dismissToast,
     }),
-    [items, unreadTotal, available, status, toasts, refresh, markRead, markAllRead, dismissToast],
+    [items, unreadTotal, available, actionError, status, toasts, refresh, markRead, markAllRead, dismissToast],
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

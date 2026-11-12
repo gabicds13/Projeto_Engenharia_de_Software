@@ -6,6 +6,8 @@ serviço de origem deixa apenas aquele card como `unavailable`, sem afetar os de
 """
 from __future__ import annotations
 
+import asyncio
+
 from app.clients.backlog_client import BacklogClient
 from app.clients.github_client import GithubClient
 from app.core.resilience import ResilienceRegistry, UpstreamUnavailable
@@ -35,20 +37,33 @@ class MetricsAggregator:
         return DashboardCard(key=key, state="ok", stale=result.stale, value=value)
 
     async def build(self, project_id: str) -> DashboardResponse:
-        commits = await self._card(
-            "commits_week", project_id, lambda: self._github.commits_this_week(project_id)
-        )
-        open_prs = await self._card(
-            "open_prs", project_id, lambda: self._github.open_prs(project_id)
-        )
-        reviews = await self._card(
-            "reviews_pending", project_id, lambda: self._backlog.reviews_pending(project_id)
-        )
-        stories = await self._card(
-            "stories_by_status", project_id, lambda: self._backlog.stories_by_status(project_id)
-        )
-        weekly = await self._card(
-            "weekly", project_id, lambda: self._github.weekly_commits_prs(project_id)
+        # As fontes sao independentes: consultar em paralelo evita somar atrasos.
+        commits, open_prs, reviews, stories, weekly = await asyncio.gather(
+            self._card(
+                "commits_week",
+                project_id,
+                lambda: self._github.commits_this_week(project_id),
+            ),
+            self._card(
+                "open_prs",
+                project_id,
+                lambda: self._github.open_prs(project_id),
+            ),
+            self._card(
+                "reviews_pending",
+                project_id,
+                lambda: self._backlog.reviews_pending(project_id),
+            ),
+            self._card(
+                "stories_by_status",
+                project_id,
+                lambda: self._backlog.stories_by_status(project_id),
+            ),
+            self._card(
+                "weekly",
+                project_id,
+                lambda: self._github.weekly_commits_prs(project_id),
+            ),
         )
         return DashboardResponse(
             project_id=project_id,

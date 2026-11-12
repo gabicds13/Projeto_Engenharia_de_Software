@@ -12,7 +12,6 @@ from app.core.errors import (
 )
 from app.core.security import CurrentUser, get_current_user
 
-
 router = APIRouter(prefix="/api/bff/projects", tags=["projects"])
 
 

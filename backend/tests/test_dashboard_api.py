@@ -1,7 +1,7 @@
 """Testes da rota do dashboard (Requisitos 4.1, 2.5)."""
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from jose import jwt
 
@@ -10,7 +10,7 @@ from app.core.config import get_settings
 
 def _token(project_ids=("proj-123",), role="DEV") -> str:
     s = get_settings()
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     return jwt.encode(
         {
             "sub": "user-1",

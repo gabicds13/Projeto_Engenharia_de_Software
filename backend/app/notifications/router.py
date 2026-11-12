@@ -1,14 +1,15 @@
 """Rotas de notificações: proxy REST + WebSocket bridge para o ms-notifications."""
 from __future__ import annotations
+
 from dataclasses import replace
-
-
 from typing import Literal
 
 from fastapi import APIRouter, Depends, Query, WebSocket
 from pydantic import BaseModel
 
 from app.clients import get_notifications_client
+from app.clients.projects_client import list_accessible_project_ids
+from app.core.config import Settings, get_settings
 from app.core.resilience import UpstreamUnavailable, get_registry
 from app.core.security import (
     CurrentUser,
@@ -17,8 +18,6 @@ from app.core.security import (
 )
 from app.core.ws_bridge import pump
 from app.domain.schemas import NotificationPage, Priority, Source, UnreadCount
-from app.clients.projects_client import list_accessible_project_ids
-from app.core.config import Settings, get_settings
 
 router = APIRouter(prefix="/api/bff/notifications", tags=["notifications"])
 async def _user_with_accessible_projects(
@@ -116,6 +115,10 @@ async def mark_read(
         user,
         notification_id,
     )
+    get_registry().invalidate(
+        f"notifications:list:{user.user_id}",
+        f"notifications:unread:{user.user_id}",
+    )
 
     return {"status": "ok"}
 
@@ -130,6 +133,10 @@ async def mark_all_read(
     )
 
     await get_notifications_client().mark_all_read(user)
+    get_registry().invalidate(
+        f"notifications:list:{user.user_id}",
+        f"notifications:unread:{user.user_id}",
+    )
 
     return {"status": "ok"}
 # WebSocket fora do prefixo /api para alinhar com o proxy do Vite (/ws).

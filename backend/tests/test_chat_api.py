@@ -1,13 +1,13 @@
 """Testes da rota de chat (Requisitos 5.1, 5.2, 5.3, 5.4)."""
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from jose import jwt
 
-import app.clients as clients
-import app.core.resilience as resilience
+from app import clients
+from app.core import resilience
 from app.core.config import get_settings
 
 
@@ -22,7 +22,7 @@ def _reset_singletons():
 
 def _token(project_ids=("proj-123",)) -> str:
     s = get_settings()
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     return jwt.encode(
         {
             "sub": "user-1",
@@ -78,12 +78,18 @@ def test_empty_message_rejected(client):
     )
     assert r.status_code == 422
 
-
 def test_ws_rejects_project_outside_token(client):
     from starlette.websockets import WebSocketDisconnect
 
-    with pytest.raises(WebSocketDisconnect):
-        with client.websocket_connect(
-            f"/ws/chat?project_id=proj-999&token={_token(('proj-123',))}"
-        ):
-            pass
+    with client.websocket_connect(
+        "/ws/chat?project_id=proj-999"
+    ) as ws:
+        ws.send_json(
+            {
+                "type": "auth",
+                "token": _token(("proj-123",)),
+            }
+        )
+
+        with pytest.raises(WebSocketDisconnect):
+            ws.receive_json()

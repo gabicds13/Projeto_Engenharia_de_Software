@@ -1,8 +1,5 @@
 from logging.config import fileConfig
 
-from sqlalchemy import engine_from_config
-from sqlalchemy import pool
-
 from alembic import context
 
 # this is the Alembic Config object, which provides
@@ -11,8 +8,8 @@ config = context.config
 
 from app.core.config import get_settings
 from app.core.database import Base
-from app.models.notification import NotificationModel
-from app.models.notification_read import NotificationReadModel
+from app.models import chat_channel, chat_channel_member, chat_channel_read, chat_message  # noqa: F401
+from app.models import notification, notification_read  # noqa: F401
 
 settings = get_settings()
 

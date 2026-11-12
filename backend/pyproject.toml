@@ -11,6 +11,9 @@ dependencies = [
     "pydantic-settings>=2.5",
     "python-jose[cryptography]>=3.3",
     "python-multipart>=0.0.12",
+    "sqlalchemy>=2.0",
+    "alembic>=1.18",
+    "psycopg[binary]>=3.3",
 ]
 
 [project.optional-dependencies]
@@ -31,3 +34,13 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
 packages = ["app"]
+
+[tool.ruff.lint]
+ignore = [
+    "B008",
+    "BLE001",
+    "C408",
+    "SIM117",
+    "UP046",
+    "S110",
+]

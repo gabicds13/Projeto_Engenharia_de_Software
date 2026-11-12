@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime, timezone
-from typing import AsyncIterator
+from collections.abc import AsyncIterator
+from datetime import UTC, datetime
 
-from sqlalchemy import or_, select
+from sqlalchemy import and_, or_, select
 from sqlalchemy.exc import IntegrityError
 
 from app.core.database import get_session_factory
@@ -19,6 +19,7 @@ from app.domain.schemas import (
 from app.models.notification import NotificationModel
 from app.models.notification_read import NotificationReadModel
 
+
 def _to_notification(
     row: NotificationModel,
     read_at: datetime | None = None,
@@ -28,6 +29,7 @@ def _to_notification(
         event_id=row.event_id,
         scope=row.scope,
         project_id=row.project_id,
+        target_user_id=row.target_user_id,
         source=Source(row.source),
         type=row.type,
         priority=Priority(row.priority),
@@ -40,7 +42,17 @@ def _to_notification(
         created_at=row.created_at,
         read_at=read_at,
     )
-
+def _visibility_filter(user: CurrentUser):
+    return and_(
+        or_(
+            NotificationModel.scope == "global",
+            NotificationModel.project_id.in_(user.project_ids),
+        ),
+        or_(
+            NotificationModel.target_user_id.is_(None),
+            NotificationModel.target_user_id == user.user_id,
+        ),
+    )
 class DatabaseNotificationsClient:
     async def publish(
         self,
@@ -64,6 +76,7 @@ class DatabaseNotificationsClient:
                 event_id=notification.event_id,
                 scope=notification.scope.value,
                 project_id=notification.project_id,
+                target_user_id=notification.target_user_id,
                 source=notification.source.value,
                 type=notification.type,
                 priority=notification.priority.value,
@@ -127,10 +140,7 @@ class DatabaseNotificationsClient:
                     ),
                 )
                 .where(
-                    or_(
-                        NotificationModel.scope == "global",
-                        NotificationModel.project_id.in_(user.project_ids),
-                    )
+                    _visibility_filter(user)
                 )
             )
 
@@ -193,10 +203,7 @@ class DatabaseNotificationsClient:
                     ),
                 )
                 .where(
-                    or_(
-                        NotificationModel.scope == "global",
-                        NotificationModel.project_id.in_(user.project_ids),
-                    ),
+                    _visibility_filter(user),
                     NotificationReadModel.read_at.is_(None),
                 )
             ).all()
@@ -225,10 +232,7 @@ class DatabaseNotificationsClient:
             notification = db.scalar(
                 select(NotificationModel).where(
                     NotificationModel.id == notif_id,
-                    or_(
-                        NotificationModel.scope == "global",
-                        NotificationModel.project_id.in_(user.project_ids),
-                    ),
+                    _visibility_filter(user),
                 )
             )
 
@@ -247,7 +251,7 @@ class DatabaseNotificationsClient:
                 NotificationReadModel(
                     notification_id=notif_id,
                     user_id=user.user_id,
-                    read_at=datetime.now(timezone.utc),
+                    read_at=datetime.now(UTC),
                 )
             )
 
@@ -260,12 +264,9 @@ class DatabaseNotificationsClient:
 
         with session_factory() as db:
             notification_ids = db.scalars(
-                select(NotificationModel.id).where(
-                    or_(
-                        NotificationModel.scope == "global",
-                        NotificationModel.project_id.in_(user.project_ids),
-                    )
-                )
+             select(NotificationModel.id).where(
+                _visibility_filter(user)
+             )
             ).all()
 
             if not notification_ids:
@@ -282,7 +283,7 @@ class DatabaseNotificationsClient:
                 ).all()
             )
 
-            read_at = datetime.now(timezone.utc)
+            read_at = datetime.now(UTC)
 
             for notification_id in notification_ids:
                 if notification_id in existing_reads:
@@ -302,34 +303,29 @@ class DatabaseNotificationsClient:
         self,
         user: CurrentUser,
     ) -> AsyncIterator[dict]:
-        last_check = datetime.now(timezone.utc)
-        session_factory = get_session_factory()
+        # Nao bloqueia o event loop enquanto o Neon responde.
+        last_check = datetime.now(UTC)
 
-        while True:
-            await asyncio.sleep(2)
-
+        def fetch_newer(since: datetime) -> list[Notification]:
+            session_factory = get_session_factory()
             with session_factory() as db:
                 rows = db.scalars(
                     select(NotificationModel)
                     .where(
-                        or_(
-                            NotificationModel.scope == "global",
-                            NotificationModel.project_id.in_(user.project_ids),
-                        ),
-                        NotificationModel.created_at > last_check,
+                        _visibility_filter(user),
+                        NotificationModel.created_at > since,
                     )
                     .order_by(NotificationModel.created_at.asc())
                 ).all()
+                return [_to_notification(row) for row in rows]
 
-            if rows:
-                last_check = max(
-                    row.created_at
-                    for row in rows
-                )
+        while True:
+            await asyncio.sleep(2)
+            notifications = await asyncio.to_thread(fetch_newer, last_check)
 
-            for row in rows:
-                notification = _to_notification(row)
-
+            if notifications:
+                last_check = max(n.created_at for n in notifications)
+            for notification in notifications:
                 yield {
                     "event": "notification.new",
                     "data": notification.model_dump(mode="json"),

@@ -8,7 +8,6 @@ from pydantic import BaseModel
 from app.core.config import Settings, get_settings
 from app.core.errors import UnauthorizedError
 
-
 router = APIRouter(prefix="/api/bff/auth", tags=["auth"])
 
 

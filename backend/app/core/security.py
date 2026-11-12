@@ -7,8 +7,9 @@ Aceita:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from enum import Enum
+import time
 
 import httpx
 from fastapi import Depends, WebSocket
@@ -16,7 +17,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError, jwt
 
 from app.core.config import Settings, get_settings
-from app.core.errors import ForbiddenError, UnauthorizedError
+from app.core.errors import ForbiddenError, ServiceUnavailableError, UnauthorizedError
 
 
 class Role(str, Enum):
@@ -56,6 +57,37 @@ def _decode_dev_token(token: str, settings: Settings) -> dict:
     )
 
 
+# Chaves publicas do Modulo 1: cache temporario para reduzir consultas externas.
+# Cada JWT continua sendo validado (assinatura, publico, emissor, expiracao).
+_JWKS_TTL_SECONDS = 300
+_jwks_cache: dict[str, tuple[float, dict]] = {}
+
+
+async def _load_module1_jwks(settings: Settings, *, force_refresh: bool = False) -> dict:
+    url = settings.module1_jwks_url
+    cached = _jwks_cache.get(url)
+    if not force_refresh and cached is not None and time.monotonic() < cached[0]:
+        return cached[1]
+
+    try:
+        async with httpx.AsyncClient(
+            timeout=max(settings.upstream_timeout_seconds, 8.0)
+        ) as client:
+            response = await client.get(url)
+            response.raise_for_status()
+            jwks = response.json()
+    except (httpx.HTTPError, ValueError) as exc:
+        raise ServiceUnavailableError(
+            "Não foi possível consultar a autenticação do Módulo 1 no momento."
+        ) from exc
+
+    if not isinstance(jwks, dict) or not isinstance(jwks.get("keys"), list):
+        raise ServiceUnavailableError("Chaves de autenticação indisponíveis.")
+
+    _jwks_cache[url] = (time.monotonic() + _JWKS_TTL_SECONDS, jwks)
+    return jwks
+
+
 async def _decode_module1_token(token: str, settings: Settings) -> dict:
     """Valida um JWT RS256 real emitido pelo Módulo 1."""
 
@@ -69,23 +101,18 @@ async def _decode_module1_token(token: str, settings: Settings) -> dict:
     if not kid:
         raise UnauthorizedError("Token sem identificador de chave (kid).")
 
-    try:
-        async with httpx.AsyncClient(
-            timeout=settings.upstream_timeout_seconds
-        ) as client:
-            response = await client.get(settings.module1_jwks_url)
-            response.raise_for_status()
-            jwks = response.json()
-    except (httpx.HTTPError, ValueError) as exc:
-        raise UnauthorizedError(
-            "Não foi possível validar o token com o Módulo 1."
-        ) from exc
-
+    jwks = await _load_module1_jwks(settings)
     public_key = next(
-        (key for key in jwks.get("keys", []) if key.get("kid") == kid),
+        (key for key in jwks["keys"] if key.get("kid") == kid),
         None,
     )
-
+    if public_key is None:
+        # Recupera mudancas de chave antes de o TTL do cache vencer.
+        jwks = await _load_module1_jwks(settings, force_refresh=True)
+        public_key = next(
+            (key for key in jwks["keys"] if key.get("kid") == kid),
+            None,
+        )
     if public_key is None:
         raise UnauthorizedError("Chave pública do token não encontrada.")
 
@@ -248,7 +275,7 @@ def downstream_headers(user: CurrentUser) -> dict[str, str]:
 def issue_dev_token(role: Role, settings: Settings) -> str:
     """Continua gerando tokens locais enquanto fazemos a integração."""
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     claims = {
         "sub": f"dev-{role.value.lower()}",

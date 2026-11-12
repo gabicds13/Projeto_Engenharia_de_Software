@@ -20,6 +20,14 @@ async def ensure_project_access(
 ) -> None:
     """Confirma no Módulo 1 se o usuário pode acessar o projeto."""
 
+    if user.project_ids:
+        if project_id in user.project_ids:
+            return
+
+        raise ForbiddenError(
+            "Usuário não participa deste projeto."
+        )
+
     if not user.access_token:
         raise UnauthorizedError("Token de acesso ausente.")
 

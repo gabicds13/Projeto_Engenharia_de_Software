@@ -97,7 +97,7 @@ def register_exception_handlers(app: FastAPI) -> None:
     @app.exception_handler(Exception)
     async def _unhandled(_: Request, exc: Exception) -> JSONResponse:
         # Loga o detalhe internamente, mas NUNCA expõe stack trace na resposta.
-        logger.error("Erro não tratado: %s", exc, exc_info=True)
+        logger.error("Erro não tratado: %s", exc)
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             content=_error_body("internal_error", "Erro interno."),

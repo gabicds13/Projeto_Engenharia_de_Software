@@ -46,7 +46,7 @@ class HttpGithubClient:
             )
             try:
                 return WeeklySeries.model_validate(r.json())
-            except Exception as exc:  # noqa: BLE001
+            except Exception as exc:
                 raise UpstreamError(f"resposta inválida do github: {exc}") from exc
 
     async def open_prs(self, project_id: str) -> int:

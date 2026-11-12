@@ -1,13 +1,13 @@
 """Testes da rota de notificações (Requisitos 3.1, 3.5, 3.6)."""
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from jose import jwt
 
-import app.clients as clients
-import app.core.resilience as resilience
+from app import clients
+from app.core import resilience
 from app.core.config import get_settings
 
 
@@ -23,7 +23,7 @@ def _reset_singletons():
 
 def _token() -> str:
     s = get_settings()
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     return jwt.encode(
         {
             "sub": "user-1",

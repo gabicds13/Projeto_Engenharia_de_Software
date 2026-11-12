@@ -16,9 +16,13 @@ from __future__ import annotations
 
 import asyncio
 import time
+from functools import lru_cache
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from enum import Enum
-from typing import Awaitable, Callable, Generic, TypeVar
+from typing import Generic, TypeVar
+
+from app.core.config import get_settings
 
 T = TypeVar("T")
 
@@ -104,6 +108,11 @@ class ResilienceRegistry:
     def _cached(self, key: str) -> _CacheEntry | None:
         return self._cache.get(key)
 
+    def invalidate(self, *keys: str) -> None:
+        """Descarta resultados em cache após alterações no estado do usuário."""
+        for key in keys:
+            self._cache.pop(key, None)
+
     async def guarded_call(
         self,
         key: str,
@@ -119,7 +128,7 @@ class ResilienceRegistry:
 
         try:
             value = await asyncio.wait_for(factory(), timeout=timeout)
-        except Exception as exc:  # noqa: BLE001 — qualquer falha vira degradação
+        except Exception as exc:
             breaker.record_failure()
             return self._fallback(key, repr(exc))
 
@@ -136,10 +145,6 @@ class ResilienceRegistry:
             return GuardedResult(value=entry.value, stale=True)
         raise UpstreamUnavailable(key, reason)
 
-
-from functools import lru_cache  # noqa: E402
-
-from app.core.config import get_settings  # noqa: E402
 
 
 @lru_cache
