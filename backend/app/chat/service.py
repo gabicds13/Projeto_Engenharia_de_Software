@@ -1,23 +1,70 @@
+"""Persistência e regras de acesso das conversas privadas por projeto."""
 from __future__ import annotations
 
 from datetime import UTC, datetime
 from uuid import uuid4
 
 from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.core.errors import ForbiddenError, NotFoundError
 from app.models.chat_channel import ChatChannelModel
 from app.models.chat_channel_member import ChatChannelMemberModel
 from app.models.chat_channel_read import ChatChannelReadModel
 from app.models.chat_message import ChatMessageModel
 
 
-def _direct_channel_name(
-    user_a_id: str,
-    user_b_id: str,
-) -> str:
+def _direct_channel_name(user_a_id: str, user_b_id: str) -> str:
     users = sorted([user_a_id, user_b_id])
     return f"dm:{users[0]}:{users[1]}"
+
+
+def get_channel_membership(
+    db: Session, channel_id: str, user_id: str
+) -> ChatChannelMemberModel | None:
+    return db.get(ChatChannelMemberModel, (channel_id, user_id))
+
+
+def is_channel_member(db: Session, channel_id: str, user_id: str) -> bool:
+    """Somente convites aceitos valem como participação ativa."""
+    membership = get_channel_membership(db, channel_id, user_id)
+    return membership is not None and membership.accepted_at is not None
+
+
+def has_pending_members(db: Session, channel_id: str) -> bool:
+    count = db.scalar(
+        select(func.count(ChatChannelMemberModel.user_id)).where(
+            ChatChannelMemberModel.channel_id == channel_id,
+            ChatChannelMemberModel.accepted_at.is_(None),
+        )
+    )
+    return bool(count)
+
+
+def _get_channel(
+    db: Session, channel_id: str, project_id: str
+) -> ChatChannelModel:
+    channel = db.scalar(
+        select(ChatChannelModel).where(
+            ChatChannelModel.id == channel_id,
+            ChatChannelModel.project_id == project_id,
+            ChatChannelModel.type == "direct",
+        )
+    )
+    if channel is None:
+        raise NotFoundError("Conversa privada não encontrada neste projeto.")
+    return channel
+
+
+def _require_active_channel(
+    db: Session, channel_id: str, project_id: str, user_id: str
+) -> None:
+    _get_channel(db, channel_id, project_id)
+    if not is_channel_member(db, channel_id, user_id):
+        raise ForbiddenError("Você não participa desta conversa privada.")
+    if has_pending_members(db, channel_id):
+        raise ForbiddenError("Aguarde o outro integrante aceitar o convite.")
 
 
 def get_or_create_direct_channel(
@@ -26,120 +73,100 @@ def get_or_create_direct_channel(
     target_user_id: str,
     project_id: str,
 ) -> ChatChannelModel:
+    """Cria convite pendente; só o destinatário pode aceitar com seu login."""
     if current_user_id == target_user_id:
-        raise ValueError(
-            "Não é possível criar uma conversa direta consigo mesmo."
-        )
+        raise ForbiddenError("Não é possível iniciar conversa consigo mesmo.")
 
-    channel_name = _direct_channel_name(
-        current_user_id,
-        target_user_id,
+    channel_name = _direct_channel_name(current_user_id, target_user_id)
+    statement = select(ChatChannelModel).where(
+        ChatChannelModel.project_id == project_id,
+        ChatChannelModel.type == "direct",
+        ChatChannelModel.name == channel_name,
     )
+    existing = db.scalar(statement)
+    if existing is not None:
+        return existing
 
-    channel = db.execute(
-        select(ChatChannelModel).where(
-            ChatChannelModel.project_id == project_id,
-            ChatChannelModel.type == "direct",
-            ChatChannelModel.name == channel_name,
-        )
-    ).scalar_one_or_none()
-
-    if channel is not None:
-        return channel
-
+    now = datetime.now(UTC)
     channel = ChatChannelModel(
         id=str(uuid4()),
         project_id=project_id,
         type="direct",
         name=channel_name,
-        created_at=datetime.now(UTC),
+        created_at=now,
     )
-
     db.add(channel)
     db.flush()
-
-    joined_at = datetime.now(UTC)
-
     db.add_all(
         [
             ChatChannelMemberModel(
                 channel_id=channel.id,
                 user_id=current_user_id,
-                joined_at=joined_at,
+                joined_at=now,
+                accepted_at=now,
             ),
             ChatChannelMemberModel(
                 channel_id=channel.id,
                 user_id=target_user_id,
-                joined_at=joined_at,
+                joined_at=now,
+                accepted_at=None,
             ),
         ]
     )
-
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        # Dois pedidos simultâneos podem criar o mesmo canal.
+        db.rollback()
+        channel = db.scalar(statement)
+        if channel is None:
+            raise
     db.refresh(channel)
-
     return channel
 
-def list_direct_channels(
-    db: Session,
-    user_id: str,
-    project_id: str,
-) -> list[tuple[ChatChannelModel, list[str]]]:
-    """
-    Lista as conversas diretas do usuário dentro de um projeto.
-    Retorna o canal e os IDs dos participantes.
-    """
 
-    channel_ids = db.execute(
+def accept_direct_invitation(
+    db: Session, channel_id: str, project_id: str, user_id: str
+) -> ChatChannelModel:
+    """A autenticação e a checagem de projeto ocorrem na rota antes daqui."""
+    channel = _get_channel(db, channel_id, project_id)
+    membership = get_channel_membership(db, channel_id, user_id)
+    if membership is None:
+        raise ForbiddenError("Este convite não pertence ao usuário conectado.")
+    if membership.accepted_at is None:
+        membership.accepted_at = datetime.now(UTC)
+        db.commit()
+    return channel
+
+
+def list_direct_channels(
+    db: Session, user_id: str, project_id: str
+) -> list[tuple[ChatChannelModel, list[str]]]:
+    """Inclui convites pendentes para que o destinatário possa aceitá-los."""
+    channel_ids = db.scalars(
         select(ChatChannelMemberModel.channel_id).where(
             ChatChannelMemberModel.user_id == user_id
         )
-    ).scalars().all()
-
+    ).all()
     if not channel_ids:
         return []
 
-    channels = db.execute(
-        select(ChatChannelModel)
-        .where(
+    channels = db.scalars(
+        select(ChatChannelModel).where(
             ChatChannelModel.id.in_(channel_ids),
             ChatChannelModel.project_id == project_id,
             ChatChannelModel.type == "direct",
-        )
-        .order_by(ChatChannelModel.created_at.desc())
-    ).scalars().all()
-
-    result: list[tuple[ChatChannelModel, list[str]]] = []
-
+        ).order_by(ChatChannelModel.created_at.desc())
+    ).all()
+    result = []
     for channel in channels:
-        members = db.execute(
+        members = db.scalars(
             select(ChatChannelMemberModel.user_id).where(
                 ChatChannelMemberModel.channel_id == channel.id
             )
-        ).scalars().all()
-
-        result.append(
-            (
-                channel,
-                list(members),
-            )
-        )
-
+        ).all()
+        result.append((channel, list(members)))
     return result
-
-def is_channel_member(
-    db: Session,
-    channel_id: str,
-    user_id: str,
-) -> bool:
-    member = db.execute(
-        select(ChatChannelMemberModel).where(
-            ChatChannelMemberModel.channel_id == channel_id,
-            ChatChannelMemberModel.user_id == user_id,
-        )
-    ).scalar_one_or_none()
-
-    return member is not None
 
 
 def get_direct_messages(
@@ -149,37 +176,14 @@ def get_direct_messages(
     user_id: str,
     limit: int = 50,
 ) -> list[ChatMessageModel]:
-    channel = db.execute(
-        select(ChatChannelModel).where(
-            ChatChannelModel.id == channel_id,
-            ChatChannelModel.project_id == project_id,
-            ChatChannelModel.type == "direct",
-        )
-    ).scalar_one_or_none()
-
-    if channel is None:
-        raise ValueError("Canal direto não encontrado.")
-
-    if not is_channel_member(
-        db,
-        channel_id,
-        user_id,
-    ):
-        raise PermissionError(
-            "Usuário não participa desta conversa."
-        )
-
-    messages = db.execute(
-        select(ChatMessageModel)
-        .where(
+    _require_active_channel(db, channel_id, project_id, user_id)
+    rows = db.scalars(
+        select(ChatMessageModel).where(
             ChatMessageModel.channel_id == channel_id,
             ChatMessageModel.project_id == project_id,
-        )
-        .order_by(ChatMessageModel.created_at.desc())
-        .limit(limit)
-    ).scalars().all()
-
-    return list(reversed(messages))
+        ).order_by(ChatMessageModel.created_at.desc()).limit(limit)
+    ).all()
+    return list(reversed(rows))
 
 
 def send_direct_message(
@@ -189,26 +193,7 @@ def send_direct_message(
     user_id: str,
     content: str,
 ) -> ChatMessageModel:
-    channel = db.execute(
-        select(ChatChannelModel).where(
-            ChatChannelModel.id == channel_id,
-            ChatChannelModel.project_id == project_id,
-            ChatChannelModel.type == "direct",
-        )
-    ).scalar_one_or_none()
-
-    if channel is None:
-        raise ValueError("Canal direto não encontrado.")
-
-    if not is_channel_member(
-        db,
-        channel_id,
-        user_id,
-    ):
-        raise PermissionError(
-            "Usuário não participa desta conversa."
-        )
-
+    _require_active_channel(db, channel_id, project_id, user_id)
     message = ChatMessageModel(
         id=str(uuid4()),
         channel_id=channel_id,
@@ -217,79 +202,38 @@ def send_direct_message(
         content=content,
         created_at=datetime.now(UTC),
     )
-
     db.add(message)
     db.commit()
     db.refresh(message)
-
     return message
 
+
 def get_channel_unread_count(
-    db: Session,
-    channel_id: str,
-    user_id: str,
+    db: Session, channel_id: str, user_id: str, project_id: str
 ) -> int:
-    if not is_channel_member(
-        db,
-        channel_id,
-        user_id,
-    ):
-        raise PermissionError(
-            "Usuário não participa deste canal."
-        )
-
-    read_state = db.execute(
-        select(ChatChannelReadModel).where(
-            ChatChannelReadModel.channel_id == channel_id,
-            ChatChannelReadModel.user_id == user_id,
-        )
-    ).scalar_one_or_none()
-
+    _require_active_channel(db, channel_id, project_id, user_id)
+    read_state = db.get(ChatChannelReadModel, (channel_id, user_id))
     query = select(func.count(ChatMessageModel.id)).where(
         ChatMessageModel.channel_id == channel_id,
         ChatMessageModel.author_id != user_id,
     )
-
     if read_state is not None:
-        query = query.where(
-            ChatMessageModel.created_at > read_state.last_read_at
-        )
+        query = query.where(ChatMessageModel.created_at > read_state.last_read_at)
+    return int(db.scalar(query) or 0)
 
-    return int(db.execute(query).scalar_one())
 
 def mark_channel_as_read(
-    db: Session,
-    channel_id: str,
-    user_id: str,
+    db: Session, channel_id: str, user_id: str, project_id: str
 ) -> None:
-    if not is_channel_member(
-        db,
-        channel_id,
-        user_id,
-    ):
-        raise PermissionError(
-            "Usuário não participa deste canal."
-        )
-
+    _require_active_channel(db, channel_id, project_id, user_id)
     now = datetime.now(UTC)
-
-    read_state = db.execute(
-        select(ChatChannelReadModel).where(
-            ChatChannelReadModel.channel_id == channel_id,
-            ChatChannelReadModel.user_id == user_id,
-        )
-    ).scalar_one_or_none()
-
+    read_state = db.get(ChatChannelReadModel, (channel_id, user_id))
     if read_state is None:
-        read_state = ChatChannelReadModel(
-            channel_id=channel_id,
-            user_id=user_id,
-            last_read_at=now,
+        db.add(
+            ChatChannelReadModel(
+                channel_id=channel_id, user_id=user_id, last_read_at=now
+            )
         )
-
-        db.add(read_state)
-
     else:
         read_state.last_read_at = now
-
     db.commit()
