@@ -8,6 +8,8 @@ config = context.config
 
 from app.core.config import get_settings
 from app.core.database import Base
+from app.models import chat_channel, chat_channel_member, chat_channel_read, chat_message  # noqa: F401
+from app.models import notification, notification_read  # noqa: F401
 
 settings = get_settings()
 
