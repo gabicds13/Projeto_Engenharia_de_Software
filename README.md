@@ -285,14 +285,14 @@ Remova a linha `NOTIFICATION_PREVIEW_ROLE` para voltar ao comportamento normal.
 ### Classificação com modelo de IA (opcional)
 
 A classificação automática funciona por regras mesmo sem provedor de IA. Para usar
-um **modelo compatível com Chat Completions e resposta JSON**, configure apenas
+um **modelo GroqCloud compatível com Chat Completions e resposta JSON**, configure apenas
 o backend local (`backend/.env`, nunca versionado):
 
 ```env
 NOTIFICATION_AI_ENABLED=true
-NOTIFICATION_AI_MODEL=gpt-4.1-mini
+NOTIFICATION_AI_MODEL=llama-3.3-70b-versatile
 NOTIFICATION_AI_API_KEY=SUA_CHAVE_PRIVADA_AQUI
-NOTIFICATION_AI_BASE_URL=https://api.openai.com/v1
+NOTIFICATION_AI_BASE_URL=https://api.groq.com/openai/v1
 NOTIFICATION_AI_TIMEOUT_SECONDS=3
 ```
 
