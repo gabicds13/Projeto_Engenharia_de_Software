@@ -55,7 +55,7 @@ class Settings(BaseSettings):
     notification_ai_api_key: str | None = None
     # GroqCloud usa Chat Completions compatível com OpenAI.
     # A integração continua DESATIVADA até haver uma chave autorizada.
-    notification_ai_model: str | None = "llama-3.3-70b-versatile"
+    notification_ai_model: str | None = "openai/gpt-oss-20b"
     notification_ai_base_url: str = "https://api.groq.com/openai/v1"
     notification_ai_timeout_seconds: float = 3.0
 
