@@ -141,10 +141,6 @@ class ResilienceRegistry:
         raise UpstreamUnavailable(key, reason)
 
 
-from functools import lru_cache
-
-from app.core.config import get_settings
-
 
 @lru_cache
 def get_registry() -> ResilienceRegistry:
