@@ -235,3 +235,25 @@ cd frontend && npm run test
 ## Licença
 
 MIT. Projeto acadêmico — Engenharia de Software, UPM, 2026-2.
+
+
+## Personalização de notificações por papéis reais do Módulo 1
+
+A consulta de papéis por projeto é **opcional e independente de `USE_MOCKS`**.
+Para testar no backend local, adicione ao `backend/.env` (não versionado):
+
+```env
+USE_MOCKS=true
+USE_MODULE1_ROLES=true
+```
+
+Reinicie o backend e entre no portal com sua conta **real do Módulo 1**.
+O BFF consulta `GET /projects/{project_id}/members`, enviando o JWT autenticado do usuário, e usa os campos `roles` e `expires_at` para personalizar a relevância da notificação naquele projeto.
+
+- `USE_MODULE1_ROLES=false` (padrão): não consulta a API de membros e mantém a relevância geral ou o perfil já conhecido.
+- `USE_MODULE1_ROLES=true`: consulta os papéis mesmo com `USE_MOCKS=true`. O restante dos mocks permanece inalterado.
+- `is_owner=true` não é equivalente a Product Owner. Se o proprietário não possuir papel PO/PM/DEV registrado, a pontuação permanece geral.
+- Sem token, sem permissão ou com a API indisponível, o BFF mantém o fallback atual; o fluxo de notificações não deve parar por causa da consulta.
+- A configuração não cria papéis nem muda permissões do Módulo 1. Não compartilhe tokens JWT, senhas ou o conteúdo inteiro de `.env`.
+
+A funcionalidade de **modelo generativo para classificar novas notificações** é separada e permanece desativada por padrão (`NOTIFICATION_AI_ENABLED=false`).
