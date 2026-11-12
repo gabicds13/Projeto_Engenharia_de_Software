@@ -50,49 +50,50 @@ function ShellContent() {
   const { unreadTotal } = useNotifications();
   const [chatUnreadTotal, setChatUnreadTotal] = useState(0);
   useEffect(() => {
-    const loadChatUnread = async () => {
-      try {
-        const response = await api.get<Project[] | ProjectResponse>(
-          "/api/bff/projects",
-        );
+    let mounted = true;
+    let projectIds: string[] = [];
+    let inFlight = false;
 
-        const projects = normalizeProjects(response);
+    const loadChatUnread = async () => {
+      if (inFlight) return;
+      inFlight = true;
+      try {
+        // Projetos mudam raramente: nao buscar de novo a cada verificacao.
+        if (projectIds.length === 0) {
+          const response = await api.get<Project[] | ProjectResponse>(
+            "/api/bff/projects",
+          );
+          projectIds = normalizeProjects(response)
+            .map(getProjectId)
+            .filter(Boolean);
+        }
 
         const counts = await Promise.all(
-          projects.map(async (project) => {
-            const projectId = getProjectId(project);
-
-            if (!projectId) {
-              return 0;
-            }
-
-            const result = await api.get<{
-              project_id: string;
-              unread: number;
-            }>(
+          projectIds.map(async (projectId) => {
+            const result = await api.get<{ project_id: string; unread: number }>(
               `/api/bff/chat/rooms/${encodeURIComponent(projectId)}/unread`,
             );
-
             return result.unread;
           }),
         );
-
-        setChatUnreadTotal(
-          counts.reduce((total, count) => total + count, 0),
-        );
+        if (mounted) {
+          setChatUnreadTotal(counts.reduce((sum, count) => sum + count, 0));
+        }
       } catch {
-        setChatUnreadTotal(0);
+        // Falhas temporarias nao apagam o numero anterior da interface.
+      } finally {
+        inFlight = false;
       }
     };
 
     void loadChatUnread();
-
-    const timer = setInterval(() => {
-      void loadChatUnread();
-    }, 3000);
-
-    return () => clearInterval(timer);
+    const timer = setInterval(() => void loadChatUnread(), 15_000);
+    return () => {
+      mounted = false;
+      clearInterval(timer);
+    };
   }, []);
+
   return (
     <div className="min-h-full bg-bg text-text">
 
