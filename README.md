@@ -257,3 +257,26 @@ O BFF consulta `GET /projects/{project_id}/members`, enviando o JWT autenticado 
 - A configuração não cria papéis nem muda permissões do Módulo 1. Não compartilhe tokens JWT, senhas ou o conteúdo inteiro de `.env`.
 
 A funcionalidade de **modelo generativo para classificar novas notificações** é separada e permanece desativada por padrão (`NOTIFICATION_AI_ENABLED=false`).
+
+
+### Prévia local da relevância como Desenvolvedor
+
+Se a sua conta for **proprietária** e não tiver papel PO, PM ou DEV no Módulo 1,
+você pode **simular a apresentação** do perfil DEV sem mudar permissões:
+
+```env
+APP_ENV=development
+USE_MOCKS=true
+NOTIFICATION_PREVIEW_ROLE=DEV
+```
+
+No `backend/.env` local, salve as configurações e reinicie o backend. A tela mostrará
+`SIMULAÇÃO LOCAL` junto à pontuação (por exemplo, eventos de Code Review
+com relevância geral 50% podem subir para 66% na prévia DEV).
+
+O teste não chama o Módulo 1 para atribuir papéis, não muda o JWT, não altera
+notificações no Neon e não dá qualquer permissão nova. Por segurança, a prévia
+é automaticamente ignorada em `APP_ENV=production` ou `USE_MOCKS=false`.
+Se for encontrado um papel real no projeto, ele continua prevalecendo.
+Remova a linha `NOTIFICATION_PREVIEW_ROLE` para voltar ao comportamento normal.
+
