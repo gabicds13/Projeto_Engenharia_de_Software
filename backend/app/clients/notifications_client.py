@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import asyncio
-import itertools
 from collections.abc import AsyncIterator
 from datetime import UTC, datetime, timedelta
 from typing import Protocol
@@ -102,13 +101,25 @@ def _seed_notifications() -> list[Notification]:
 
 
 class MockNotificationsClient:
+    """Notificações de demonstração com isolamento por usuário e entrega em tempo real.
+
+    Não depende das APIs de outros módulos. Novos eventos chegam pelo endpoint
+    POST /api/integrations/notifications, que já existe no projeto.
+    """
+
     def __init__(self) -> None:
         self._items: list[Notification] = _seed_notifications()
-        self._counter = itertools.count(len(self._items) + 1)
+        self._reads: dict[str, dict[str, datetime]] = {}
+        self._subscribers: list[tuple[CurrentUser, asyncio.Queue[Notification]]] = []
 
     def _visible(self, user: CurrentUser) -> list[Notification]:
-        # No mock, todas as notificações pertencem ao usuário conectado.
-        return list(self._items)
+        reads = self._reads.get(user.user_id, {})
+        return [
+            item.model_copy(update={"read_at": reads.get(item.id, item.read_at)})
+            for item in self._items
+            if (item.scope.value == "global" or item.project_id in user.project_ids)
+            and (item.target_user_id is None or item.target_user_id == user.user_id)
+        ]
 
     async def list(
         self,
@@ -129,7 +140,7 @@ class MockNotificationsClient:
             items = [n for n in items if n.read_at is None]
         elif status == "read":
             items = [n for n in items if n.read_at is not None]
-        items = sorted(items, key=lambda n: n.created_at, reverse=True)
+        items.sort(key=lambda n: n.created_at, reverse=True)
         return NotificationPage(items=items[:limit], next_cursor=None)
 
     async def unread_count(self, user: CurrentUser) -> UnreadCount:
@@ -140,50 +151,44 @@ class MockNotificationsClient:
         return count
 
     async def mark_read(self, user: CurrentUser, notif_id: str) -> None:
-        for n in self._items:
-            if n.id == notif_id and n.read_at is None:
-                idx = self._items.index(n)
-                self._items[idx] = n.model_copy(
-                    update={"read_at": datetime.now(UTC)}
-                )
-    async def publish(self, notification: Notification) -> Notification:
-      self._items.append(notification)
-      return notification
+        if any(n.id == notif_id for n in self._visible(user)):
+            self._reads.setdefault(user.user_id, {}).setdefault(
+                notif_id, datetime.now(UTC)
+            )
 
     async def mark_all_read(self, user: CurrentUser) -> None:
+        reads = self._reads.setdefault(user.user_id, {})
         now = datetime.now(UTC)
-        self._items = [
-            n if n.read_at else n.model_copy(update={"read_at": now}) for n in self._items
-        ]
+        for item in self._visible(user):
+            reads.setdefault(item.id, now)
+
+    async def publish(self, notification: Notification) -> Notification:
+        if notification.event_id:
+            for item in self._items:
+                if item.event_id == notification.event_id:
+                    return item
+
+        self._items.append(notification)
+        for subscriber, queue in list(self._subscribers):
+            if any(item.id == notification.id for item in self._visible(subscriber)):
+                queue.put_nowait(notification)
+        return notification
 
     async def ws_source(self, user: CurrentUser) -> AsyncIterator[dict]:
-        """Emite uma nova notificação periodicamente, para demonstrar o tempo real."""
-        samples = [
-            (Source.RELATORIOS, "report.generated", Priority.LOW, "Relatório de qualidade gerado"),
-            (Source.ARTEFATOS, "artifact.uploaded", Priority.MEDIUM, "Novo documento de requisitos"),
-            (Source.CODE_REVIEW, "build.failed", Priority.CRITICAL, "Build quebrado em main"),
-        ]
-        cycle = itertools.cycle(samples)
-        while True:
-            await asyncio.sleep(12)
-            src, typ, prio, title = next(cycle)
-            n = Notification(
-                id=f"ntf-{next(self._counter):03d}",
-                source=src,
-                type=typ,
-                priority=prio,
-                relevance_score=0.8 if prio == Priority.CRITICAL else 0.4,
-                reason="Evento recebido em tempo real (demo).",
-                classified_by="rules",
-                project_id="proj-123",
-                title=title,
-                body="Notificação de exemplo emitida pelo mock.",
-                link="/projects/proj-123",
-                created_at=datetime.now(UTC),
-                read_at=None,
-            )
-            self._items.append(n)
-            yield {"event": "notification.new", "data": n.model_dump(mode="json")}
+        """Publica eventos novos; não fabrica notificações a cada conexão."""
+        queue: asyncio.Queue[Notification] = asyncio.Queue()
+        subscription = (user, queue)
+        self._subscribers.append(subscription)
+        try:
+            while True:
+                notification = await queue.get()
+                yield {
+                    "event": "notification.new",
+                    "data": notification.model_dump(mode="json"),
+                }
+        finally:
+            if subscription in self._subscribers:
+                self._subscribers.remove(subscription)
 
 
 class HttpNotificationsClient:
