@@ -29,4 +29,9 @@ class ChatChannelMemberModel(Base):
         DateTime(timezone=True),
         nullable=False,
     )
-    
+
+    # Convite pendente ate o destinatario confirmar com seu proprio login.
+    accepted_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
