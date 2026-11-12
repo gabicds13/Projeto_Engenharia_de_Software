@@ -77,6 +77,8 @@ async def publish_notification(
         relevance_score=classification.relevance_score,
         reason=classification.reason,
         classified_by=classification.classified_by,
+        summary=classification.summary,
+        group_key=classification.group_key,
         title=data.title,
         body=data.body,
         link=data.link,
