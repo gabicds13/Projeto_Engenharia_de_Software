@@ -108,6 +108,11 @@ class ResilienceRegistry:
     def _cached(self, key: str) -> _CacheEntry | None:
         return self._cache.get(key)
 
+    def invalidate(self, *keys: str) -> None:
+        """Descarta resultados em cache após alterações no estado do usuário."""
+        for key in keys:
+            self._cache.pop(key, None)
+
     async def guarded_call(
         self,
         key: str,
