@@ -218,36 +218,30 @@ class DatabaseChatClient:
         user: CurrentUser,
         project_id: str,
     ) -> AsyncIterator[dict]:
+        # Consultas ao Neon rodam em thread para nao travar outras telas.
         last_check = datetime.now(UTC)
-        session_factory = get_session_factory()
 
-        while True:
-            await asyncio.sleep(2)
-
+        def fetch_newer(since: datetime) -> list[ChatMessage]:
+            session_factory = get_session_factory()
             with session_factory() as db:
-                channel = _get_or_create_project_channel(
-                    db,
-                    project_id,
-                )
-
+                channel = _get_or_create_project_channel(db, project_id)
                 rows = db.scalars(
                     select(ChatMessageModel)
                     .where(
                         ChatMessageModel.channel_id == channel.id,
-                        ChatMessageModel.created_at > last_check,
+                        ChatMessageModel.created_at > since,
                     )
                     .order_by(ChatMessageModel.created_at.asc())
                 ).all()
+                return [_to_chat_message(row) for row in rows]
 
-            if rows:
-                last_check = max(
-                    row.created_at
-                    for row in rows
-                )
+        while True:
+            await asyncio.sleep(2)
+            messages = await asyncio.to_thread(fetch_newer, last_check)
 
-            for row in rows:
-                message = _to_chat_message(row)
-
+            if messages:
+                last_check = max(message.created_at for message in messages)
+            for message in messages:
                 yield {
                     "event": "chat.message",
                     "data": message.model_dump(mode="json"),
