@@ -350,3 +350,24 @@ no seu Neon.
 A API de publicação não recebe papéis RBAC verificados. A etapa futura de
 "contexto do usuário" precisa obtê-los de uma fonte autorizada, sem confiar em
 declarações arbitrárias do produtor do evento ou compartilhar dados sensíveis.
+
+
+### Contexto técnico e RBAC para o classificador de IA
+
+A publicação de notificações pelo endpoint `POST /api/integrations/notifications`
+aceita agora, opcionalmente, `stack` (até 8 tecnologias) e
+`changed_files` (até 15 nomes de arquivos). O contrato anterior continua
+funcionando se esses campos não forem enviados.
+
+O classificador possui o parâmetro interno `verified_roles`, que permite
+acrescentar papéis RBAC **somente depois de confirmação por autenticação
+confiável**, sem aceitar funções arbitrárias no corpo do POST. **Ainda não
+realizamos a ligação do contexto por usuário com o Módulo 1 para a chamada
+global de classificação**: atualmente a publicação não envia papéis ao LLM,
+e a personalização por projeto permanece na leitura da notificação. Isso
+evita inventar um papel para o proprietário do projeto.
+
+O contexto técnico nunca deve conter tokens, secrets, informações pessoais
+ou nomes de arquivos sensíveis. A classificação com IA segue opcional:
+sem chave de API e `NOTIFICATION_AI_ENABLED=true`, o fallback por regras
+continua ativo.
