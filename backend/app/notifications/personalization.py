@@ -103,41 +103,61 @@ def personalize_for_project_roles(
     notification: Notification,
     user: CurrentUser,
     roles_by_project: dict[str, tuple[Role, ...] | None],
+    *,
+    preview_role: Role | None = None,
 ) -> Notification:
-    """Calcula a melhor relevância para os papéis efetivos neste projeto.
+    """Personaliza por papel efetivo, ou simula somente se nenhum papel foi confirmado.
 
-    Papéis não confirmados mantêm o comportamento anterior. Um projeto sem
-    nenhum papel reconhecido usa relevância geral, não inventa um perfil.
-    Notificações globais continuam considerando o papel geral, se disponível.
+    A prévia nunca concede permissões e não modifica o banco de dados.
     """
     if notification.project_id is None:
-        return personalize_notification(notification, user)
+        roles = (user.role,) if user.role is not None else None
+    else:
+        roles = roles_by_project.get(notification.project_id)
 
-    roles = roles_by_project.get(notification.project_id)
-    if roles is None:
-        return personalize_notification(notification, user)
-    if not roles:
+    if roles:
+        candidates = [
+            personalize_notification(notification, replace(user, role=role))
+            for role in roles
+        ]
+        return max(
+            candidates,
+            key=lambda n: (
+                n.personal_relevance_score
+                if n.personal_relevance_score is not None
+                else n.relevance_score
+            ),
+        )
+
+    if preview_role is not None:
+        simulated = personalize_notification(
+            notification, replace(user, role=preview_role)
+        )
+        return simulated.model_copy(update={
+            "personalization_preview": True,
+            "personal_reason": (
+                f"Simulação local do perfil {preview_role.value}; "
+                "não corresponde às permissões reais do usuário."
+            ),
+        })
+
+    if roles == ():
         return personalize_notification(notification, replace(user, role=None))
-
-    candidates = [
-        personalize_notification(notification, replace(user, role=role))
-        for role in roles
-    ]
-    return max(
-        candidates,
-        key=lambda n: n.personal_relevance_score
-        if n.personal_relevance_score is not None else n.relevance_score,
-    )
+    return personalize_notification(notification, user)
 
 
 def personalize_page_for_projects(
     page: NotificationPage,
     user: CurrentUser,
     roles_by_project: dict[str, tuple[Role, ...] | None],
+    *,
+    preview_role: Role | None = None,
 ) -> NotificationPage:
-    """Aplica perfis específicos sem alterar a prioridade original do evento."""
+    """Aplica os papéis aos itens carregados, preservando dados persistidos."""
     items = [
-        personalize_for_project_roles(notification, user, roles_by_project)
+        personalize_for_project_roles(
+            notification, user, roles_by_project, preview_role=preview_role
+        )
         for notification in page.items
     ]
     items.sort(key=notification_sort_key, reverse=True)
