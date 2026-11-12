@@ -116,6 +116,14 @@ export function DirectChatPanel({
     void loadChannels();
   }, [projectId, loadChannels]);
 
+  // Atualiza convites recebidos sem exigir F5 ou outro usuário presente.
+  useEffect(() => {
+    const timer = setInterval(() => {
+      void loadChannels();
+    }, 8000);
+    return () => clearInterval(timer);
+  }, [loadChannels]);
+
   useEffect(() => {
     seen.current.clear();
     setMessages([]);
