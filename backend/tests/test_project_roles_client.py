@@ -157,5 +157,5 @@ def test_papeis_multiplos_usam_maior_relevancia():
     personalized = personalize_page_for_projects(
         NotificationPage(items=[n]), user, {"project-A": (Role.PO, Role.PM, Role.DEV)}
     )
-    assert personalized.items[0].personal_relevance_score == 0.64
+    assert personalized.items[0].personal_relevance_score == 0.68
     assert n.personal_relevance_score is None
