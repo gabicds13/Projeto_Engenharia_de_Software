@@ -163,3 +163,23 @@ def test_queda_notificacoes_nao_interrompe_dashboard(client, monkeypatch):
     )
     assert dashboard.status_code == 200
     assert len(dashboard.json()["cards"]) == 4
+
+
+def test_queda_chat_nao_interrompe_notificacoes(client, monkeypatch):
+    import app.chat.router as chat_router
+
+    class ChatOffline:
+        async def history(self, *args, **kwargs):
+            raise ConnectionError("Chat indisponível")
+
+    monkeypatch.setattr(chat_router, "get_chat_client", lambda: ChatOffline())
+
+    chat = client.get(
+        "/api/bff/chat/rooms/proj-123/messages", headers=_auth()
+    )
+    assert chat.status_code == 200
+    assert chat.json()["state"] == "unavailable"
+
+    notifications = client.get("/api/bff/notifications", headers=_auth())
+    assert notifications.status_code == 200
+    assert notifications.json()["state"] == "ok"
