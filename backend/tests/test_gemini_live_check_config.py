@@ -20,7 +20,7 @@ def test_diagnostico_le_env_local_sem_conectar_ao_neon(tmp_path, monkeypatch):
 
     assert settings.notification_ai_api_key == "chave-ficticia-testes"
     assert settings.notification_ai_enabled is True
-    assert settings.notification_ai_model == "gemini-2.5-flash-lite"
+    assert settings.notification_ai_model == "gemini-3.5-flash-lite"
     assert settings.use_notifications_db is False
     assert settings.use_chat_db is False
     assert settings.database_url is None
