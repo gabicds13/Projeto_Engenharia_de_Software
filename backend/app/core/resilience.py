@@ -113,6 +113,12 @@ class ResilienceRegistry:
         for key in keys:
             self._cache.pop(key, None)
 
+    def invalidate_prefix(self, prefix: str) -> None:
+        """Remove entradas de cache para todas as variantes do usuário."""
+        for key in list(self._cache):
+            if key.startswith(prefix):
+                self._cache.pop(key, None)
+
     async def guarded_call(
         self,
         key: str,
