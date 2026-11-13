@@ -150,5 +150,6 @@ def test_producao_nao_monta_endpoint_de_login_dev(monkeypatch):
         lambda: Settings(_env_file=None, app_env="production", enable_dev_login=False),
     )
     application = main_module.create_app()
-    paths = {route.path for route in application.routes}
+    # O OpenAPI contém somente as rotas HTTP publicadas pela aplicação.
+    paths = set(application.openapi()["paths"])
     assert "/api/bff/dev/tokens" not in paths
