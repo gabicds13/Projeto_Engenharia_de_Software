@@ -202,7 +202,7 @@ def test_gemini_default_eh_desligado_sem_chave():
     assert settings.notification_ai_enabled is False
     assert settings.notification_ai_api_key is None
     assert settings.notification_ai_base_url == "https://generativelanguage.googleapis.com/v1beta/openai"
-    assert settings.notification_ai_model == "gemini-2.5-flash-lite"
+    assert settings.notification_ai_model == "gemini-3.5-flash-lite"
 
 
 @pytest.mark.asyncio
@@ -245,7 +245,7 @@ async def test_gemini_url_e_contrato_json(monkeypatch):
         settings=settings,
     )
     assert captured["url"] == "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions"
-    assert captured["payload"]["model"] == "gemini-2.5-flash-lite"
+    assert captured["payload"]["model"] == "gemini-3.5-flash-lite"
     assert captured["payload"]["response_format"] == {"type": "json_object"}
     assert result.classified_by == "llm"
     assert result.relevance_score == 0.77
