@@ -4,7 +4,8 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, Query
 
 from app.clients import get_backlog_client, get_github_client
-from app.clients.backlog_client import HttpBacklogClient
+from app.clients.backlog_client import HttpBacklogClient, MockBacklogClient
+from app.clients.github_client import MockGithubClient
 from app.clients.projects_client import ensure_project_access
 from app.core.config import Settings, get_settings
 from app.core.errors import ForbiddenError
@@ -39,10 +40,18 @@ async def get_dashboard(
             },
         )
 
+    github_client = get_github_client()
+    mock_keys: set[str] = set()
+    if isinstance(github_client, MockGithubClient):
+        mock_keys.update(("commits_week", "open_prs", "weekly"))
+    if isinstance(backlog_client, MockBacklogClient):
+        mock_keys.update(("reviews_pending", "stories_by_status"))
+
     aggregator = MetricsAggregator(
         backlog=backlog_client,
-        github=get_github_client(),
+        github=github_client,
         registry=get_registry(),
+        mock_keys=frozenset(mock_keys),
     )
 
     return await aggregator.build(project_id)
