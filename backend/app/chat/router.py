@@ -5,6 +5,7 @@ O acesso é restrito aos projetos presentes no token do usuário (Requisito 5.1)
 from __future__ import annotations
 
 from datetime import UTC, datetime
+import logging
 from typing import Literal
 from uuid import uuid4
 
@@ -46,6 +47,7 @@ from app.domain.schemas import (
 )
 
 router = APIRouter(prefix="/api/bff/chat", tags=["chat"])
+logger = logging.getLogger(__name__)
 
 
 class HistoryResult(BaseModel):
@@ -177,29 +179,45 @@ async def post_message(
         user.user_id,
     )
 
-    notifications = get_notifications_client()
-
-    for target_user_id in mentions:
-        await notifications.publish(
-            Notification(
-                id=str(uuid4()),
-                event_id=f"chat-mention-{message.id}-{target_user_id}"[:100],
-                source=Source.CHAT,
-                type="chat.mention",
-                priority=Priority.MEDIUM,
-                relevance_score=0.7,
-                reason="Você foi mencionado em uma mensagem do Chat.",
-                classified_by="rules",
-                scope=NotificationScope.PROJECT,
-                project_id=project_id,
-                target_user_id=target_user_id,
-                title="Você foi mencionado no Chat",
-                body=f"{user.user_id}: {payload.content}",
-                link="/chat",
-                created_at=message.created_at.astimezone(UTC),
-                read_at=None,
+    # A mensagem já foi persistida. A notificação de menção é um efeito
+    # secundário: falhas nesse serviço não devem transformar o envio em erro.
+    if mentions:
+        try:
+            notifications = get_notifications_client()
+        except Exception as exc:
+            logger.warning(
+                "Notificações indisponíveis após envio do chat (%s).",
+                type(exc).__name__,
             )
-        )
+        else:
+            for target_user_id in mentions:
+                try:
+                    await notifications.publish(
+                        Notification(
+                            id=str(uuid4()),
+                            event_id=f"chat-mention-{message.id}-{target_user_id}"[:100],
+                            source=Source.CHAT,
+                            type="chat.mention",
+                            priority=Priority.MEDIUM,
+                            relevance_score=0.7,
+                            reason="Você foi mencionado em uma mensagem do Chat.",
+                            classified_by="rules",
+                            scope=NotificationScope.PROJECT,
+                            project_id=project_id,
+                            target_user_id=target_user_id,
+                            title="Você foi mencionado no Chat",
+                            body=f"{user.user_id}: {payload.content}",
+                            link="/chat",
+                            created_at=message.created_at.astimezone(UTC),
+                            read_at=None,
+                        )
+                    )
+                except Exception as exc:
+                    # Não registrar o corpo da mensagem nem IDs pessoais no log.
+                    logger.warning(
+                        "Não foi possível gerar uma notificação de menção (%s).",
+                        type(exc).__name__,
+                    )
 
     return message 
 

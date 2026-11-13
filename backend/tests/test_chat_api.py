@@ -93,3 +93,93 @@ def test_ws_rejects_project_outside_token(client):
 
         with pytest.raises(WebSocketDisconnect):
             ws.receive_json()
+
+
+def test_falha_de_notificacoes_nao_interrompe_mensagem_ja_salva(client, monkeypatch):
+    import app.chat.router as chat_router
+
+    class NotificationsOffline:
+        async def publish(self, notification):
+            raise ConnectionError("Serviço de notificações desligado")
+
+    monkeypatch.setattr(
+        chat_router, "get_notifications_client", lambda: NotificationsOffline()
+    )
+
+    message = client.post(
+        "/api/bff/chat/rooms/proj-123/messages",
+        json={"content": "Oi @pessoa-teste, mensagem persistida."},
+        headers=_auth(),
+    )
+    assert message.status_code == 200, message.text
+    saved = message.json()
+    assert saved["content"] == "Oi @pessoa-teste, mensagem persistida."
+
+    history = client.get(
+        "/api/bff/chat/rooms/proj-123/messages", headers=_auth()
+    )
+    assert history.status_code == 200
+    assert saved["id"] in {item["id"] for item in history.json()["messages"]}
+
+
+def test_falha_ao_iniciar_cliente_de_notificacoes_nao_interrompe_chat(
+    client, monkeypatch
+):
+    import app.chat.router as chat_router
+
+    def broken_notifications_client():
+        raise ConnectionError("Serviço de notificações indisponível")
+
+    monkeypatch.setattr(
+        chat_router, "get_notifications_client", broken_notifications_client
+    )
+    result = client.post(
+        "/api/bff/chat/rooms/proj-123/messages",
+        json={"content": "Oi @pessoa-teste, teste de recuperação."},
+        headers=_auth(),
+    )
+    assert result.status_code == 200
+    assert result.json()["content"] == "Oi @pessoa-teste, teste de recuperação."
+
+
+def test_queda_notificacoes_nao_interrompe_dashboard(client, monkeypatch):
+    import app.notifications.router as notifications_router
+
+    class Offline:
+        async def list(self, *args, **kwargs):
+            raise ConnectionError("Notificações indisponíveis")
+
+    monkeypatch.setattr(
+        notifications_router, "get_notifications_client", lambda: Offline()
+    )
+    notifications = client.get("/api/bff/notifications", headers=_auth())
+    assert notifications.status_code == 200
+    assert notifications.json()["state"] == "unavailable"
+
+    dashboard = client.get(
+        "/api/bff/dashboard",
+        params={"project_id": "proj-123"},
+        headers=_auth(),
+    )
+    assert dashboard.status_code == 200
+    assert len(dashboard.json()["cards"]) == 4
+
+
+def test_queda_chat_nao_interrompe_notificacoes(client, monkeypatch):
+    import app.chat.router as chat_router
+
+    class ChatOffline:
+        async def history(self, *args, **kwargs):
+            raise ConnectionError("Chat indisponível")
+
+    monkeypatch.setattr(chat_router, "get_chat_client", lambda: ChatOffline())
+
+    chat = client.get(
+        "/api/bff/chat/rooms/proj-123/messages", headers=_auth()
+    )
+    assert chat.status_code == 200
+    assert chat.json()["state"] == "unavailable"
+
+    notifications = client.get("/api/bff/notifications", headers=_auth())
+    assert notifications.status_code == 200
+    assert notifications.json()["state"] == "ok"
