@@ -4,11 +4,12 @@ interface Props {
   label: string;
   state: "ok" | "unavailable";
   stale?: boolean;
+  dataOrigin?: "real" | "mock";
   children?: ReactNode;
 }
 
 // Card de métrica. Números usam .metric (tabular-nums) para não "dançar".
-export function MetricCard({ label, state, stale, children }: Props) {
+export function MetricCard({ label, state, stale, dataOrigin, children }: Props) {
   return (
     <div className="flex flex-col gap-1 rounded-lg border border-border bg-surface p-4">
       <span className="text-xs font-medium uppercase tracking-wide text-text-muted">
@@ -19,6 +20,11 @@ export function MetricCard({ label, state, stale, children }: Props) {
       ) : (
         <>
           {children}
+          {dataOrigin === "mock" && (
+            <span className="text-xs text-text-muted" aria-label="Dados de demonstração">
+              Dados de demonstração (simulados)
+            </span>
+          )}
           {stale && (
             <span className="text-xs text-text-muted">dados do último cache</span>
           )}
