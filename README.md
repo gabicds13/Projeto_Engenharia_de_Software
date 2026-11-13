@@ -15,23 +15,42 @@ e encapsula os demais serviços da plataforma.
 > A visão geral completa do Módulo 6 e da plataforma está em
 > [`docs/visao-geral-modulo6.md`](docs/visao-geral-modulo6.md).
 
+## Entrega final AP2 — 13/11/2026
+
+A versão documentada do Módulo 6 inclui **Dashboard, Central de Notificações e Chat**, com resiliência e classificação de alertas por regras; a integração com modelo generativo é **opcional** e precisa de validação própria. O portal pode conter **dados simulados, explicitamente identificados**. O status `success` dos pipelines de deploy não equivale a uma homologação visual ou integração comprovada com todos os módulos.
+
+**Materiais atualizados para a apresentação e entrega individual:**
+
+- [Relatório técnico final do Módulo 6](docs/relatorio-final-modulo6.md) — texto-base com arquitetura, resultados, limitações e seção de contribuições individuais a preencher.
+- [Checklist AP2](docs/checklist-entrega-ap2.md) — itens previstos no enunciado, materiais preparados e pendências de conferência.
+- [Evidências técnicas](docs/evidencias-entrega-ap2.md) — PRs, testes, CI/CD, deploy e limites das evidências.
+- [Roteiro de apresentação](docs/roteiro-apresentacao-ap2.md) — oito slides sugeridos e demonstração guiada com espaços para prints reais.
+- [Validação de interface e funcionalidades — etapa 4](docs/validacao-etapa4.md).
+
+**Evidência de qualidade:** execução do CI [43517866360](https://github.com/gabicds13/Projeto_Engenharia_de_Software/actions/runs/43517866360): **122 testes do backend e 24 do frontend aprovados**, com lint/build aprovados. Os workflows de deploy do commit `f99b08e` também terminaram com sucesso (links no documento de evidências).
+
+**Para submeter:** conferir o site em navegador real, inserir prints autênticos, completar integrantes/contribuições e realizar a entrega individual, conforme o PDF do professor. O checklist não substitui as instruções oficiais da turma.
+
 ## O que este serviço faz
 
 - **Portal central**: navbar + Dashboard, Notificações e Chat, com tema claro/escuro e layout responsivo.
 - **Dashboard de métricas**: agrega commits, PRs, reviews e User Stories dos Módulos 1 e 2.
-- **Central de notificações**: consome o `ms-notifications`, exibe feed, sino com contador e toasts em tempo real.
-- **Chat da equipe**: consome o `ms-chat`, com salas por projeto e mensagens em tempo real.
+- **Central de notificações**: exibe feed, contador e avisos em tempo real; o backend possui rotas de ingestão, classificação e persistência opcional, com clientes mock/HTTP/banco conforme a configuração.
+- **Chat da equipe**: salas por projeto, histórico, menções e conversas privadas; o backend possui implementação por banco e clientes mock/HTTP selecionáveis.
 
-## O que este serviço **não** faz
+## Responsabilidades e fronteiras de integração
 
-Estas responsabilidades são de outros serviços do Módulo 6, consumidos por este portal:
+O repositório **contém implementações de Chat e Notificações no backend**, além das
+abstrações de clientes para serviços independentes. Sua operação real depende da
+configuração `USE_CHAT_DB`, `USE_NOTIFICATIONS_DB`, `USE_MOCKS` e das URLs externas.
 
-| Responsabilidade | Serviço dono |
-|------------------|--------------|
-| Ingestão de eventos, priorização por IA, persistência de notificações | `ms-notifications` |
-| Persistência e entrega do chat | `ms-chat` |
-| Emissão/validação de identidade (JWT), papéis e membros | Módulo 1 (Auth/Backlog) |
-| Métricas de código e PRs | Módulo 2 (GitHub) |
+| Responsabilidade | Implementação ou dependência |
+|------------------|-----------------------------|
+| Classificação/recebimento de notificações | Backend local do Módulo 6; integração com serviços produtores é separada |
+| Persistência do Chat e notificações | Clientes de banco opcionais no backend; clientes externos/mocks alternativos |
+| Autenticação real, permissões, projetos e papéis | Módulo 1 (Auth/Projetos/Backlog), com validação de acesso no BFF |
+| Métricas de código e Pull Requests | Módulo 2 (GitHub), ou mocks marcados como demonstração |
+| Assistente conversacional RAG | Módulo 7 — não é o Chat humano do Módulo 6 |
 
 ## Arquitetura
 
@@ -85,21 +104,26 @@ npm run dev                    # http://localhost:5173
 
 O Vite encaminha `/api` e `/ws` para o BFF em `localhost:8006` (ver `vite.config.ts`).
 
-### Login de desenvolvimento
+### Autenticação e login de desenvolvimento
 
-Sem o Módulo 1 no ar, use o login de desenvolvimento na tela inicial (Product Owner, Scrum
-Master ou Desenvolvedor). Os tokens de teste vêm de `GET /api/bff/dev/tokens`, disponível quando
-`APP_ENV=development` **ou** quando `ENABLE_DEV_LOGIN=true`.
+A tela de login atual do portal usa a autenticação real do **Módulo 1**, através de
+`POST /api/bff/auth/login`. A disponibilidade da API do outro grupo precisa ser verificada
+no ambiente final.
 
-> **Produção/demonstração:** como o Módulo 1 (autenticação real) ainda não existe, o deploy liga
-> `ENABLE_DEV_LOGIN=true` para permitir a demonstração. Esse login gera tokens de qualquer perfil
-> **sem senha** — portanto **desligue-o** (`ENABLE_DEV_LOGIN=false`) assim que a autenticação real
-> estiver integrada.
+O backend mantém `GET /api/bff/dev/tokens` para desenvolvimento ou ambientes explicitamente
+configurados, mas **a tela atual não contém seletor de login de desenvolvimento**. Esses tokens
+não devem ser divulgados e a configuração `ENABLE_DEV_LOGIN=true` **não deve ser habilitada
+em produção** para permitir acesso sem senha. Para demonstrar, use conta autorizada ou
+uma instância local isolada, com mocks e configurações de desenvolvimento.
 
-## Deploy na nuvem (Render, via Docker)
+## Opção alternativa de deploy: Render (via Docker)
 
-Cada serviço do Módulo 6 roda como um contêiner independente com uma URL pública, para que os
-módulos da plataforma se integrem consumindo as APIs uns dos outros. O deploy usa o
+Esta seção é uma **alternativa de publicação**, não o ambiente atualmente utilizado na
+entrega. O repositório contém workflows em `.github/workflows/main_software6-*.yml`
+para publicação no **Azure App Service** (`software6-web`, `software6-bff`,
+`software6-bff-2`); consulte [as evidências AP2](docs/evidencias-entrega-ap2.md).
+Para publicar uma cópia via Render, cada serviço é um contêiner independente com URL
+pública. O deploy alternativo usa o
 [`render.yaml`](render.yaml) (Blueprint do [Render](https://render.com)), que cria **dois
 serviços web Docker**: `ms-dashboard-bff` (BFF) e `ms-dashboard-web` (portal). O Render constrói
 as imagens na nuvem a partir dos `Dockerfile` do repositório — não é preciso ter Docker na sua
@@ -291,7 +315,7 @@ responsável autorizado, fora do repositório (`backend/.env` local ou gerenciad
 
 ```env
 NOTIFICATION_AI_ENABLED=true
-NOTIFICATION_AI_MODEL=gemini-2.5-flash-lite
+NOTIFICATION_AI_MODEL=MODELO_DISPONIVEL_NO_SEU_PROJETO
 NOTIFICATION_AI_API_KEY=SUA_CHAVE_PRIVADA_AQUI
 NOTIFICATION_AI_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai
 NOTIFICATION_AI_TIMEOUT_SECONDS=3

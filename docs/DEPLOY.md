@@ -1,9 +1,18 @@
-# Guia de deploy — como publicar sua própria cópia no Render
+# Guia de deploy alternativo — Render
+
+> **Aviso para a entrega AP2 de 2026/2:** o ambiente de publicação efetivamente
+> configurado neste repositório é o **Azure App Service**, através dos workflows
+> `main_software6-web.yml`, `main_software6-bff.yml` e `main_software6-bff-2.yml`.
+> Este documento apresenta **somente uma alternativa de publicação no Render**,
+> não comprova publicação no Render nem substitui a documentação da entrega.
+> Consulte [evidências AP2](evidencias-entrega-ap2.md) e
+> [checklist de entrega](checklist-entrega-ap2.md).
+
+## Publicação alternativa de uma cópia no Render
 
 Este guia é para um colega de equipe pegar o código do `ms-dashboard` (portal + BFF do
 Módulo 6) e publicar **a sua própria cópia** na nuvem, no Render, via Docker.
 
-> Tempo estimado: ~20 minutos (a maior parte é esperar o build).
 > Pré-requisitos: uma conta no GitHub e uma conta no Render (pode entrar com o GitHub).
 > **Você NÃO precisa instalar Docker na sua máquina** — o Render constrói as imagens na nuvem.
 
