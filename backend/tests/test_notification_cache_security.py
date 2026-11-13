@@ -4,11 +4,23 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 
 from jose import jwt
+import pytest
 
 from app.core.config import get_settings
 from app.core.resilience import get_registry
 from app.domain.schemas import NotificationPage
 from app.notifications.router import _notification_cache_key
+
+
+@pytest.fixture(autouse=True)
+def reset_cache():
+    from app import clients
+
+    get_registry.cache_clear()
+    clients.get_notifications_client.cache_clear()
+    yield
+    get_registry.cache_clear()
+    clients.get_notifications_client.cache_clear()
 
 
 def _auth(project_ids: tuple[str, ...], user_id: str = "user-1") -> dict[str, str]:
