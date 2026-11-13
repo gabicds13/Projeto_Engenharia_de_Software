@@ -29,7 +29,7 @@ const demoNotification: Notification = {
 };
 
 export function NotificationsPage() {
-  const { items, available, actionError, markRead, markAllRead, wsOpen } = useNotifications();
+  const { items, available, actionError, markRead, markAllRead, refresh, wsOpen } = useNotifications();
   const [priority, setPriority] = useState<Priority | "all">("all");
   const [source, setSource] = useState<Source | "all">("all");
   const [status, setStatus] = useState<StatusFilter>("all");
@@ -57,7 +57,20 @@ export function NotificationsPage() {
     [items, priority, source, status, sortOrder, onlyRelevant],
   );
 
-  if (!available) return <UnavailableState label="Notificações" />;
+  if (!available) {
+    return (
+      <section className="flex flex-col items-start gap-3">
+        <UnavailableState label="Notificações" />
+        <button
+          type="button"
+          onClick={() => void refresh()}
+          className="rounded-md bg-primary px-3 py-2 text-sm font-medium text-white hover:bg-primary-hover"
+        >
+          Tentar novamente
+        </button>
+      </section>
+    );
+  }
 
   return (
     <section className="flex flex-col gap-4">
