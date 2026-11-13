@@ -55,7 +55,7 @@ class Settings(BaseSettings):
     notification_ai_api_key: str | None = None
     # Gemini usa o endpoint Chat Completions compatível com OpenAI.
     # Continua DESATIVADA até haver acesso autorizado.
-    notification_ai_model: str | None = "gemini-2.5-flash-lite"
+    notification_ai_model: str | None = "gemini-3.5-flash-lite"
     notification_ai_base_url: str = "https://generativelanguage.googleapis.com/v1beta/openai"
     notification_ai_timeout_seconds: float = 3.0
 
