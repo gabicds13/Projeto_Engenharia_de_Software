@@ -92,3 +92,64 @@ def test_dev_tokens_endpoint(client):
     s = get_settings()
     claims = jwt.decode(body["po"], s.jwt_secret, algorithms=[s.jwt_algorithm])
     assert claims["role"] == "PO"
+
+
+@pytest.mark.asyncio
+async def test_producao_rejeita_token_de_desenvolvimento():
+    from app.core.config import Settings
+    from app.core.errors import UnauthorizedError
+    from app.core.security import _decode
+
+    settings = Settings(_env_file=None, app_env="production", enable_dev_login=False)
+    now = datetime.now(UTC)
+    development_token = jwt.encode(
+        {
+            "sub": "dev-po",
+            "role": "PO",
+            "project_ids": ["proj-123"],
+            "iat": now,
+            "exp": now + timedelta(hours=1),
+        },
+        settings.jwt_secret,
+        algorithm=settings.jwt_algorithm,
+    )
+
+    with pytest.raises(UnauthorizedError):
+        await _decode(development_token, settings)
+
+
+@pytest.mark.asyncio
+async def test_token_expirado_nao_pode_acessar_dados():
+    from app.core.config import Settings
+    from app.core.errors import UnauthorizedError
+    from app.core.security import _decode
+
+    settings = Settings(_env_file=None, app_env="development")
+    now = datetime.now(UTC)
+    token = jwt.encode(
+        {
+            "sub": "user-test",
+            "project_ids": ["proj-123"],
+            "iat": now - timedelta(hours=2),
+            "exp": now - timedelta(hours=1),
+        },
+        settings.jwt_secret,
+        algorithm=settings.jwt_algorithm,
+    )
+    with pytest.raises(UnauthorizedError):
+        await _decode(token, settings)
+
+
+def test_producao_nao_monta_endpoint_de_login_dev(monkeypatch):
+    import app.main as main_module
+    from app.core.config import Settings
+
+    monkeypatch.setattr(
+        main_module,
+        "get_settings",
+        lambda: Settings(_env_file=None, app_env="production", enable_dev_login=False),
+    )
+    application = main_module.create_app()
+    # O OpenAPI contém somente as rotas HTTP publicadas pela aplicação.
+    paths = set(application.openapi()["paths"])
+    assert "/api/bff/dev/tokens" not in paths
