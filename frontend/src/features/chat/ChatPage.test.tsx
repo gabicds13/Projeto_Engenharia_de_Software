@@ -30,6 +30,11 @@ vi.mock("./DirectChatPanel", () => ({
 }));
 
 beforeEach(() => {
+  // jsdom não implementa o scroll nativo do navegador.
+  Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
+    configurable: true,
+    value: vi.fn(),
+  });
   vi.clearAllMocks();
   mocks.get.mockImplementation((path: string) => {
     if (path === "/api/bff/projects") {
