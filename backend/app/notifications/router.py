@@ -4,6 +4,7 @@ from __future__ import annotations
 from dataclasses import replace
 from datetime import UTC, datetime
 import asyncio
+import json
 from typing import Literal
 
 from fastapi import APIRouter, Depends, Query, WebSocket
@@ -29,6 +30,17 @@ from app.notifications.personalization import (
 from app.domain.schemas import Notification, NotificationPage, NotificationScope, Priority, Source, UnreadCount
 
 router = APIRouter(prefix="/api/bff/notifications", tags=["notifications"])
+
+
+def _notification_cache_key(kind: str, user: CurrentUser, **params: object) -> str:
+    """Isola cache por usuário, projetos autorizados e filtros de consulta."""
+    identity = {
+        "projects": sorted(user.project_ids),
+        "params": params,
+    }
+    suffix = json.dumps(identity, sort_keys=True, separators=(",", ":"))
+    return f"notifications:{kind}:{user.user_id}:{suffix}"
+
 async def _user_with_accessible_projects(
     user: CurrentUser,
     settings: Settings,
@@ -175,14 +187,21 @@ async def list_notifications(
     settings: Settings = Depends(get_settings),
 ) -> ListResult:
     user = await _user_with_accessible_projects(
-    user,
-    settings,
-)
+        user,
+        settings,
+    )
     client = get_notifications_client()
     reg = get_registry()
     try:
         result = await reg.guarded_call(
-            f"notifications:list:{user.user_id}",
+            _notification_cache_key(
+                "list", user,
+                cursor=cursor,
+                priority=priority.value if priority else None,
+                source=source.value if source else None,
+                status=status,
+                limit=limit,
+            ),
             lambda: client.list(
                 user,
                 cursor=cursor,
@@ -221,7 +240,7 @@ async def unread_count(
     reg = get_registry()
     try:
         result = await reg.guarded_call(
-            f"notifications:unread:{user.user_id}",
+            _notification_cache_key("unread", user),
             lambda: client.unread_count(user),
         )
     except UpstreamUnavailable:
@@ -244,10 +263,8 @@ async def mark_read(
         user,
         notification_id,
     )
-    get_registry().invalidate(
-        f"notifications:list:{user.user_id}",
-        f"notifications:unread:{user.user_id}",
-    )
+    get_registry().invalidate_prefix(f"notifications:list:{user.user_id}:")
+    get_registry().invalidate_prefix(f"notifications:unread:{user.user_id}:")
 
     return {"status": "ok"}
 
@@ -262,10 +279,8 @@ async def mark_all_read(
     )
 
     await get_notifications_client().mark_all_read(user)
-    get_registry().invalidate(
-        f"notifications:list:{user.user_id}",
-        f"notifications:unread:{user.user_id}",
-    )
+    get_registry().invalidate_prefix(f"notifications:list:{user.user_id}:")
+    get_registry().invalidate_prefix(f"notifications:unread:{user.user_id}:")
 
     return {"status": "ok"}
 async def personalized_ws_source(events, user: CurrentUser, settings: Settings | None = None):
