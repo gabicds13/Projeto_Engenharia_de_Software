@@ -17,13 +17,13 @@ const linkBase =
 
   return (
     <header className="bg-primary">
-      <nav className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-6 py-3">
-        <div className="flex items-center gap-6">
+      <nav className="mx-auto flex max-w-6xl flex-col gap-3 px-4 py-3 sm:px-6 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center sm:gap-6">
           {/* Vermelho Mackenzie SOMENTE no logo */}
           <span className="text-lg font-semibold text-white">
             Módulo<span className="text-brand-accent">6</span>
           </span>
-          <div className="flex gap-1">
+          <div className="flex flex-wrap gap-1">
             <TabLink to="/dashboard" label="Dashboard" />
             <TabLink to="/notificacoes" label="Notificações" badge={unreadBadge} />
             <TabLink
@@ -34,7 +34,7 @@ const linkBase =
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex min-w-0 flex-wrap items-center gap-3">
           <button
             type="button"
             onClick={toggle}
@@ -45,7 +45,7 @@ const linkBase =
           </button>
           {user && (
             <>
-              <span className="text-sm text-white/80">
+              <span className="max-w-full break-all text-sm text-white/80">
                 {user.user_id} · {user.role}
               </span>
               <button
