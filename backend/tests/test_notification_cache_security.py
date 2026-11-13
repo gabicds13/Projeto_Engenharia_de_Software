@@ -57,7 +57,6 @@ def test_cache_distingue_projetos_e_filtros():
 
 
 def test_cache_nao_retorna_notificacoes_apos_mudanca_de_projetos(client, monkeypatch):
-    from app import clients
     import app.notifications.router as notification_router
 
     class FailingAfterFirst:
