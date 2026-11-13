@@ -73,15 +73,29 @@ export function DashboardPage() {
 
       setProjects(list);
       if (list.length > 0) {
-        setProjectId((current) =>
-          list.some((project) => getProjectId(project) === current)
-            ? current
-            : getProjectId(list[0]),
-        );
+        const next = list.some((project) => getProjectId(project) === activeProjectRef.current)
+          ? activeProjectRef.current
+          : getProjectId(list[0]);
+        if (next !== activeProjectRef.current) {
+          activeProjectRef.current = next;
+          setData(null);
+          setDashboardError(null);
+          setProjectId(next);
+        }
       } else {
+        activeProjectRef.current = "";
+        setProjectId("");
+        setData(null);
         setProjectsError("Nenhum projeto disponível para este usuário.");
       }
     } catch (err) {
+      if (err instanceof ApiError && (err.status === 401 || err.status === 403)) {
+        // Em revogação de acesso, não preservar projetos e métricas carregados.
+        activeProjectRef.current = "";
+        setProjectId("");
+        setProjects([]);
+        setData(null);
+      }
       setProjectsError(
         err instanceof ApiError && err.status === 403
           ? "Você não tem permissão para consultar os projetos."
