@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { api, ApiError } from "../../lib/apiClient";
 import type {
   DashboardCard,
@@ -55,59 +55,88 @@ export function DashboardPage() {
   const [projectsLoading, setProjectsLoading] = useState(true);
 
   const [data, setData] = useState<DashboardResponse | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [projectsError, setProjectsError] = useState<string | null>(null);
+  const [dashboardError, setDashboardError] = useState<string | null>(null);
+  // Impede que a resposta atrasada de outro projeto apareça na tela atual.
+  const activeProjectRef = useRef(projectId);
+  activeProjectRef.current = projectId;
 
-  useEffect(() => {
-    const loadProjects = async () => {
-      setProjectsLoading(true);
-      setError(null);
-
-      try {
-        const response = await api.get<Project[] | ProjectResponse>(
-          "/api/bff/projects",
-        );
-
-        const list = normalizeProjects(response);
-
-        setProjects(list);
-
-        if (list.length > 0) {
-          setProjectId(getProjectId(list[0]));
-        } else {
-          setError("Nenhum projeto disponível para este usuário.");
-        }
-      } catch (err) {
-        setError(
-          err instanceof ApiError
-            ? err.message
-            : "Não foi possível carregar os projetos.",
-        );
-      } finally {
-        setProjectsLoading(false);
-      }
-    };
-
-    void loadProjects();
-  }, []);
-
-  const loadDashboard = useCallback(async () => {
-    if (!projectId) {
-      return;
-    }
+  const loadProjects = useCallback(async () => {
+    setProjectsLoading(true);
+    setProjectsError(null);
 
     try {
-      const response = await api.get<DashboardResponse>(
-        `/api/bff/dashboard?project_id=${encodeURIComponent(projectId)}`,
+      const response = await api.get<Project[] | ProjectResponse>(
+        "/api/bff/projects",
       );
+      const list = normalizeProjects(response).filter((project) => getProjectId(project));
+
+      setProjects(list);
+      if (list.length > 0) {
+        const next = list.some((project) => getProjectId(project) === activeProjectRef.current)
+          ? activeProjectRef.current
+          : getProjectId(list[0]);
+        if (next !== activeProjectRef.current) {
+          activeProjectRef.current = next;
+          setData(null);
+          setDashboardError(null);
+          setProjectId(next);
+        }
+      } else {
+        activeProjectRef.current = "";
+        setProjectId("");
+        setData(null);
+        setProjectsError("Nenhum projeto disponível para este usuário.");
+      }
+    } catch (err) {
+      if (err instanceof ApiError && (err.status === 401 || err.status === 403)) {
+        // Em revogação de acesso, não preservar projetos e métricas carregados.
+        activeProjectRef.current = "";
+        setProjectId("");
+        setProjects([]);
+        setData(null);
+      }
+      setProjectsError(
+        err instanceof ApiError && err.status === 403
+          ? "Você não tem permissão para consultar os projetos."
+          : "Não foi possível consultar os projetos no Módulo 1. As outras áreas do portal continuam disponíveis.",
+      );
+    } finally {
+      setProjectsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadProjects();
+  }, [loadProjects]);
+
+  const loadDashboard = useCallback(async () => {
+    if (!projectId) return;
+
+    const requestedProjectId = projectId;
+    try {
+      const response = await api.get<DashboardResponse>(
+        `/api/bff/dashboard?project_id=${encodeURIComponent(requestedProjectId)}`,
+      );
+      if (activeProjectRef.current !== requestedProjectId) return;
 
       setData(response);
-      setError(null);
+      setDashboardError(null);
     } catch (err) {
-      setError(
-        err instanceof ApiError
-          ? err.message
-          : "Falha ao carregar o dashboard.",
+      if (activeProjectRef.current !== requestedProjectId) return;
+
+      // Se o acesso foi revogado, nunca exibir dados anteriormente carregados.
+      if (err instanceof ApiError && (err.status === 401 || err.status === 403)) {
+        setData(null);
+        setDashboardError("Não foi possível validar seu acesso a este projeto.");
+        return;
+      }
+
+      setDashboardError(
+        "Não foi possível atualizar as métricas agora. Tente novamente.",
       );
+      // Em falhas temporárias, mantemos o último resultado já exibido,
+      // sem trocar o projeto nem conceder acesso adicional.
     }
   }, [projectId]);
 
@@ -129,22 +158,66 @@ export function DashboardPage() {
     return <p className="text-text-muted">Carregando projetos…</p>;
   }
 
-  if (error) {
+  if (!projectId) {
     return (
-      <p className="rounded-lg border border-border bg-surface p-6 text-text-muted">
-        {error}
-      </p>
+      <section className="flex flex-col gap-4">
+        <h1 className="text-xl font-semibold text-text">Dashboard do Projeto</h1>
+        <p role="alert" className="rounded-lg border border-border bg-surface p-6 text-text-muted">
+          {projectsError ?? "Nenhum projeto disponível para este usuário."}
+        </p>
+        {projectsError !== "Nenhum projeto disponível para este usuário." && (
+          <button type="button" onClick={() => void loadProjects()}
+            className="self-start rounded-md bg-primary px-4 py-2 text-sm font-medium text-white">
+            Tentar novamente
+          </button>
+        )}
+      </section>
     );
   }
 
   if (!data) {
-    return <p className="text-text-muted">Carregando métricas…</p>;
+    return (
+      <section className="flex flex-col gap-4">
+        <h1 className="text-xl font-semibold text-text">Dashboard do Projeto</h1>
+        {dashboardError ? (
+          <>
+            <p role="alert" className="rounded-lg border border-border bg-surface p-6 text-text-muted">
+              {dashboardError}
+            </p>
+            <button type="button" onClick={() => void loadDashboard()}
+              className="self-start rounded-md bg-primary px-4 py-2 text-sm font-medium text-white">
+              Tentar novamente
+            </button>
+          </>
+        ) : (
+          <p className="text-text-muted">Carregando métricas…</p>
+        )}
+      </section>
+    );
   }
 
   const byKey = new Map(data.cards.map((card) => [card.key, card]));
 
   return (
     <section className="flex flex-col gap-6">
+      {projectsError && (
+        <div role="alert" className="rounded-lg border border-border bg-surface p-4 text-sm text-text-muted">
+          {projectsError}
+          <button type="button" onClick={() => void loadProjects()}
+            className="ml-3 underline">
+            Tentar novamente
+          </button>
+        </div>
+      )}
+      {dashboardError && (
+        <div role="alert" className="rounded-lg border border-border bg-surface p-4 text-sm text-text-muted">
+          {dashboardError} Exibindo os últimos dados carregados.
+          <button type="button" onClick={() => void loadDashboard()}
+            className="ml-3 underline">
+            Tentar novamente
+          </button>
+        </div>
+      )}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-xl font-semibold text-text">
           Dashboard do Projeto
@@ -154,7 +227,9 @@ export function DashboardPage() {
           <select
             value={projectId}
             onChange={(event) => {
+              activeProjectRef.current = event.target.value;
               setData(null);
+              setDashboardError(null);
               setProjectId(event.target.value);
             }}
             className="rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text"

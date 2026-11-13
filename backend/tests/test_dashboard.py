@@ -63,3 +63,59 @@ async def test_cache_serves_stale_after_failure():
     assert commits.state == "ok"
     assert commits.stale is True
     assert commits.value == 47
+
+
+
+class _FullyBrokenGithub(MockGithubClient):
+    """Simula indisponibilidade completa do Módulo 2."""
+    async def commits_this_week(self, project_id: str) -> int:
+        raise ConnectionError("modulo 2 indisponivel")
+
+    async def open_prs(self, project_id: str) -> int:
+        raise ConnectionError("modulo 2 indisponivel")
+
+    async def weekly_commits_prs(self, project_id: str):
+        raise ConnectionError("modulo 2 indisponivel")
+
+
+class _BrokenBacklog(MockBacklogClient):
+    """Simula indisponibilidade completa do Backlog do Módulo 1."""
+    async def stories_by_status(self, project_id: str):
+        raise ConnectionError("modulo 1 indisponivel")
+
+    async def reviews_pending(self, project_id: str) -> int:
+        raise ConnectionError("modulo 1 indisponivel")
+
+
+async def test_queda_total_modulo2_nao_afeta_metricas_modulo1():
+    resp = await MetricsAggregator(
+        MockBacklogClient(), _FullyBrokenGithub(), _registry()
+    ).build("proj-123")
+    cards = {c.key: c for c in resp.cards}
+    assert cards["commits_week"].state == "unavailable"
+    assert cards["open_prs"].state == "unavailable"
+    assert resp.weekly.state == "unavailable"
+    assert cards["stories_by_status"].state == "ok"
+    assert cards["reviews_pending"].state == "ok"
+
+
+async def test_queda_total_backlog_modulo1_nao_afeta_github():
+    resp = await MetricsAggregator(
+        _BrokenBacklog(), MockGithubClient(), _registry()
+    ).build("proj-123")
+    cards = {c.key: c for c in resp.cards}
+    assert cards["stories_by_status"].state == "unavailable"
+    assert cards["reviews_pending"].state == "unavailable"
+    assert cards["commits_week"].state == "ok"
+    assert cards["open_prs"].state == "ok"
+    assert resp.weekly.state == "ok"
+
+
+async def test_queda_ambos_modulos_dashboard_responde_sem_erro():
+    resp = await MetricsAggregator(
+        _BrokenBacklog(), _FullyBrokenGithub(), _registry()
+    ).build("proj-123")
+    assert resp.project_id == "proj-123"
+    assert len(resp.cards) == 4
+    assert all(c.state == "unavailable" for c in resp.cards)
+    assert resp.weekly.state == "unavailable"
