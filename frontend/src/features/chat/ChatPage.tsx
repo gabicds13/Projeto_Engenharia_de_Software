@@ -50,6 +50,10 @@ export function ChatPage() {
   const [unread, setUnread] = useState(0);
   const [available, setAvailable] = useState(true);
   const [text, setText] = useState("");
+  const [sending, setSending] = useState(false);
+  const [sendError, setSendError] = useState<string | null>(null);
+  const activeProjectRef = useRef(projectId);
+  activeProjectRef.current = projectId;
   const seen = useRef<Set<string>>(new Set());
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -117,10 +121,13 @@ export function ChatPage() {
 
   const loadHistory = useCallback(async () => {
     if (!projectId) return;
+    const requestedProjectId = projectId;
     try {
       const res = await api.get<ChatHistoryResult>(
-        `/api/bff/chat/rooms/${encodeURIComponent(projectId)}/messages`,
+        `/api/bff/chat/rooms/${encodeURIComponent(requestedProjectId)}/messages`,
       );
+      // Não mostrar mensagens da resposta atrasada de outro projeto.
+      if (activeProjectRef.current !== requestedProjectId) return;
       if (res.state === "unavailable") {
         setAvailable(false);
         return;
@@ -129,7 +136,7 @@ export function ChatPage() {
       res.messages.forEach((m) => seen.current.add(m.id));
       setMessages(res.messages);
     } catch {
-      setAvailable(false);
+      if (activeProjectRef.current === requestedProjectId) setAvailable(false);
     }
   }, [projectId]);
 
@@ -137,7 +144,7 @@ export function ChatPage() {
     const msg = data as { event?: string; data?: ChatMessage };
     if (msg.event === "chat.message" && msg.data) {
       const m = msg.data;
-      if (seen.current.has(m.id)) return;
+      if (m.project_id !== activeProjectRef.current || seen.current.has(m.id)) return;
       seen.current.add(m.id);
       setMessages((prev) => [...prev, m]);
       void markRead();
@@ -178,19 +185,28 @@ export function ChatPage() {
   const send = async (e: React.FormEvent) => {
     e.preventDefault();
     const content = text.trim();
-    if (!content) return;
-    setText("");
+    const requestedProjectId = projectId;
+    if (!content || !requestedProjectId || sending) return;
+    setSending(true);
+    setSendError(null);
     try {
       const created = await api.post<ChatMessage>(
-        `/api/bff/chat/rooms/${encodeURIComponent(projectId)}/messages`,
+        `/api/bff/chat/rooms/${encodeURIComponent(requestedProjectId)}/messages`,
         { content },
       );
+      if (activeProjectRef.current !== requestedProjectId) return;
+      // Só limpa após confirmação e não apaga texto novo digitado durante o envio.
+      setText((current) => current.trim() === content ? "" : current);
       if (!seen.current.has(created.id)) {
         seen.current.add(created.id);
         setMessages((prev) => [...prev, created]);
       }
     } catch (err) {
-      if (err instanceof ApiError && err.status >= 500) setAvailable(false);
+      if (activeProjectRef.current === requestedProjectId) {
+        setSendError(err instanceof ApiError ? err.message : "Não foi possível enviar a mensagem. Tente novamente.");
+      }
+    } finally {
+      setSending(false);
     }
   };
 
@@ -206,8 +222,6 @@ export function ChatPage() {
       </p>
     );
   }
-  if (chatMode === "general" && !available) return <UnavailableState label="Chat" />;
-
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -224,6 +238,14 @@ export function ChatPage() {
       </div>
       {chatMode === "direct" ? (
         <DirectChatPanel projectId={projectId} currentUserId={user?.user_id ?? ""} />
+      ) : !available ? (
+        <div className="flex flex-col items-start gap-3">
+          <UnavailableState label="Chat geral" />
+          <button type="button" onClick={() => void loadHistory()}
+            className="rounded-md bg-primary px-3 py-2 text-sm font-medium text-white">
+            Tentar novamente
+          </button>
+        </div>
       ) : (
     <section className="flex h-[70vh] flex-col rounded-lg border border-border bg-surface">
       <header className="flex items-center justify-between border-b border-border px-4 py-3">
@@ -244,8 +266,12 @@ export function ChatPage() {
           <select
             value={projectId}
             onChange={(event) => {
+              activeProjectRef.current = event.target.value;
               seen.current.clear();
               setMessages([]);
+              setAvailable(true);
+              setSendError(null);
+              setText("");
               setProjectId(event.target.value);
             }}
             className="rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text"
@@ -276,18 +302,20 @@ export function ChatPage() {
         <div ref={bottomRef} />
       </div>
 
+      {sendError && <p role="alert" className="px-3 text-sm text-priority-critical">{sendError}</p>}
       <form onSubmit={send} className="flex gap-2 border-t border-border p-3">
         <input
           value={text}
           onChange={(e) => setText(e.target.value)}
           placeholder="Escreva uma mensagem…"
-          className="flex-1 rounded-md border border-border bg-bg px-3 py-2 text-sm text-text"
+          className="min-w-0 flex-1 rounded-md border border-border bg-bg px-3 py-2 text-sm text-text"
         />
         <button
           type="submit"
-          className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary-hover"
+          disabled={sending || !text.trim()}
+          className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary-hover disabled:opacity-60"
         >
-          Enviar
+          {sending ? "Enviando…" : "Enviar"}
         </button>
       </form>
     </section>
