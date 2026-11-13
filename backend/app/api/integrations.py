@@ -4,9 +4,10 @@ from datetime import UTC, datetime
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, Header, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.clients import get_notifications_client
+from app.notifications.classifier import classify_notification
 from app.core.config import Settings, get_settings
 from app.domain.schemas import (
     Notification,
@@ -31,6 +32,10 @@ class NotificationInput(BaseModel):
     body: str
     priority: Priority = Priority.MEDIUM
     link: str | None = None
+    # Contexto técnico do produtor autenticado pela chave de integração.
+    # Nunca aceitar papéis RBAC enviados livremente neste endpoint.
+    stack: list[str] = Field(default_factory=list, max_length=8)
+    changed_files: list[str] = Field(default_factory=list, max_length=15)
 
 
 @router.post("/notifications", response_model=Notification)
@@ -52,6 +57,17 @@ async def publish_notification(
             detail="project_id é obrigatório para notificações de projeto.",
         )
 
+    classification = await classify_notification(
+        source=data.source,
+        event_type=data.type,
+        title=data.title,
+        body=data.body,
+        incoming_priority=data.priority,
+        settings=settings,
+        stack=tuple(data.stack),
+        changed_files=tuple(data.changed_files),
+    )
+
     notification = Notification(
         id=str(uuid4()),
         event_id=data.event_id,
@@ -63,10 +79,12 @@ async def publish_notification(
         ),
         source=data.source,
         type=data.type,
-        priority=data.priority,
-        relevance_score=0.5,
-        reason="Notificação recebida por integração externa.",
-        classified_by="rules",
+        priority=classification.priority,
+        relevance_score=classification.relevance_score,
+        reason=classification.reason,
+        classified_by=classification.classified_by,
+        summary=classification.summary,
+        group_key=classification.group_key,
         title=data.title,
         body=data.body,
         link=data.link,

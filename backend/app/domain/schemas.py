@@ -40,8 +40,13 @@ class Notification(BaseModel):
     type: str
     priority: Priority
     relevance_score: float = Field(ge=0.0, le=1.0)
+    personal_relevance_score: float | None = Field(default=None, ge=0.0, le=1.0)
+    personal_reason: str | None = None
+    personalization_preview: bool = False
     reason: str
     classified_by: Literal["llm", "rules"]
+    summary: str | None = None
+    group_key: str | None = None
     scope: NotificationScope = NotificationScope.PROJECT
     project_id: str | None = None
     target_user_id: str | None = None

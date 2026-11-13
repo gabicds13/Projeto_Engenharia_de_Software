@@ -41,6 +41,24 @@ class Settings(BaseSettings):
     use_notifications_db: bool = False
     use_chat_db: bool = False
 
+    # Consulta opcional dos papéis REAIS no Módulo 1, independente de USE_MOCKS.
+    # Ative localmente com USE_MODULE1_ROLES=true e login real do Módulo 1.
+    use_module1_roles: bool = False
+
+    # Teste visual de relevância, somente em desenvolvimento e com mocks.
+    # Não altera o papel real do usuário nem qualquer permissão.
+    notification_preview_role: Literal["PO", "PM", "DEV"] | None = None
+
+    # Classificação inteligente (desligada até configurar um modelo).
+    # Segredos só em variáveis de ambiente; nunca no repositório.
+    notification_ai_enabled: bool = False
+    notification_ai_api_key: str | None = None
+    # Gemini usa o endpoint Chat Completions compatível com OpenAI.
+    # Continua DESATIVADA até haver acesso autorizado.
+    notification_ai_model: str | None = "gemini-3.5-flash-lite"
+    notification_ai_base_url: str = "https://generativelanguage.googleapis.com/v1beta/openai"
+    notification_ai_timeout_seconds: float = 3.0
+
 
     # Integração real com o Módulo 1
     module1_auth_url: str = "https://mod1-auth.whitemeadow-deba1090.brazilsouth.azurecontainerapps.io"

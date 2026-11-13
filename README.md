@@ -235,3 +235,168 @@ cd frontend && npm run test
 ## Licença
 
 MIT. Projeto acadêmico — Engenharia de Software, UPM, 2026-2.
+
+
+## Personalização de notificações por papéis reais do Módulo 1
+
+A consulta de papéis por projeto é **opcional e independente de `USE_MOCKS`**.
+Para testar no backend local, adicione ao `backend/.env` (não versionado):
+
+```env
+USE_MOCKS=true
+USE_MODULE1_ROLES=true
+```
+
+Reinicie o backend e entre no portal com sua conta **real do Módulo 1**.
+O BFF consulta `GET /projects/{project_id}/members`, enviando o JWT autenticado do usuário, e usa os campos `roles` e `expires_at` para personalizar a relevância da notificação naquele projeto.
+
+- `USE_MODULE1_ROLES=false` (padrão): não consulta a API de membros e mantém a relevância geral ou o perfil já conhecido.
+- `USE_MODULE1_ROLES=true`: consulta os papéis mesmo com `USE_MOCKS=true`. O restante dos mocks permanece inalterado.
+- `is_owner=true` não é equivalente a Product Owner. Se o proprietário não possuir papel PO/PM/DEV registrado, a pontuação permanece geral.
+- Sem token, sem permissão ou com a API indisponível, o BFF mantém o fallback atual; o fluxo de notificações não deve parar por causa da consulta.
+- A configuração não cria papéis nem muda permissões do Módulo 1. Não compartilhe tokens JWT, senhas ou o conteúdo inteiro de `.env`.
+
+A funcionalidade de **modelo generativo para classificar novas notificações** é separada e permanece desativada por padrão (`NOTIFICATION_AI_ENABLED=false`).
+
+
+### Prévia local da relevância como Desenvolvedor
+
+Se a sua conta for **proprietária** e não tiver papel PO, PM ou DEV no Módulo 1,
+você pode **simular a apresentação** do perfil DEV sem mudar permissões:
+
+```env
+APP_ENV=development
+USE_MOCKS=true
+NOTIFICATION_PREVIEW_ROLE=DEV
+```
+
+No `backend/.env` local, salve as configurações e reinicie o backend. A tela mostrará
+`SIMULAÇÃO LOCAL` junto à pontuação (por exemplo, eventos de Code Review
+com relevância geral 50% podem subir para 66% na prévia DEV).
+
+O teste não chama o Módulo 1 para atribuir papéis, não muda o JWT, não altera
+notificações no Neon e não dá qualquer permissão nova. Por segurança, a prévia
+é automaticamente ignorada em `APP_ENV=production` ou `USE_MOCKS=false`.
+Se for encontrado um papel real no projeto, ele continua prevalecendo.
+Remova a linha `NOTIFICATION_PREVIEW_ROLE` para voltar ao comportamento normal.
+
+
+
+### Classificação com modelo de IA (opcional)
+
+A classificação automática funciona por regras mesmo sem provedor de IA.
+O provedor padrão da integração opcional é o **Google Gemini**, via API
+compatível com Chat Completions. As credenciais devem ser administradas por
+responsável autorizado, fora do repositório (`backend/.env` local ou gerenciador de segredos):
+
+```env
+NOTIFICATION_AI_ENABLED=true
+NOTIFICATION_AI_MODEL=gemini-2.5-flash-lite
+NOTIFICATION_AI_API_KEY=SUA_CHAVE_PRIVADA_AQUI
+NOTIFICATION_AI_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai
+NOTIFICATION_AI_TIMEOUT_SECONDS=3
+```
+
+**Atenção:** esta configuração apenas seleciona um provedor, não habilita
+a API, não confirma cotas gratuitas e não inicia faturamento. É necessária uma
+credencial de projeto autorizado. Nunca compartilhe chaves em prints,
+mensagens, issues ou commits. Consulte as condições de privacidade e uso
+do serviço antes de transmitir qualquer conteúdo real.
+
+O modelo recebe apenas origem, tipo, título, corpo limitado a 1.000 caracteres
+e prioridade declarada do evento. Não envie dados pessoais, credenciais ou
+segredos em notificações de teste. Se o provedor falhar, a notificação é
+classificada por regras locais e segue para armazenamento normalmente.
+
+Para testar, reinicie o backend e envie um **novo** `event_id` pelo endpoint
+`POST /api/integrations/notifications`, preferencialmente primeiro com
+`USE_NOTIFICATIONS_DB=false` num ambiente isolado. Confira na resposta
+`classified_by: "llm"`, `relevance_score` e `reason`. Se retornar
+`classified_by: "rules"`, o fallback foi aplicado; verifique a configuração
+e os logs do backend sem divulgar a chave. Eventos com `event_id` já cadastrado
+podem retornar o registro anterior sem nova classificação.
+
+Para desativar, defina `NOTIFICATION_AI_ENABLED=false` e reinicie o backend.
+Não habilite a integração diretamente no Azure sem revisar privacidade, custos
+e comportamento com os responsáveis pelo projeto.
+
+
+### Contrato JSON da classificação (etapa de preparação)
+
+O classificador retorna os campos `priority`, `relevance_score`, `reason`,
+`summary` e `group_key`. O último é uma categoria estável de agrupamento,
+como `code-review` ou `github-commit`. Se o provedor devolver JSON incompleto
+ou inválido, o sistema aplica regras e preenche `summary` com o título do
+evento e `group_key` com a origem.
+
+Para compatibilidade com notificações anteriores, `summary` e `group_key`
+são **opcionais** no contrato de leitura. A migração
+`b8f4d2a19c60` acrescenta as duas colunas opcionais à tabela
+`notifications`. Após aplicar essa migração, novas notificações passam a
+ser persistidas no Neon com resumo e agrupamento; as antigas continuam com
+`null` nesses campos e não são apagadas.
+
+**Como aplicar ao banco existente (somente depois de revisar o destino e ter
+um backup):**
+
+1. Atualize a branch e confira que `backend/.env` aponta para o banco correto.
+2. Na pasta `backend`, execute `py -m alembic current` para consultar a revisão atual.
+3. Revise a migração e aplique `py -m alembic upgrade head`.
+4. Confirme com `py -m alembic current` que está em `b8f4d2a19c60`.
+5. Só depois reinicie o backend que usa `USE_NOTIFICATIONS_DB=true`.
+
+**Não inicie o backend novo contra um banco antigo sem antes aplicar a migração:**
+o ORM passa a consultar as duas colunas novas. A alteração não é aplicada
+automaticamente pelo `git pull` e não foi executada por este assistente
+no seu Neon.
+
+A API de publicação não recebe papéis RBAC verificados. A etapa futura de
+"contexto do usuário" precisa obtê-los de uma fonte autorizada, sem confiar em
+declarações arbitrárias do produtor do evento ou compartilhar dados sensíveis.
+
+
+### Contexto técnico e RBAC para o classificador de IA
+
+A publicação de notificações pelo endpoint `POST /api/integrations/notifications`
+aceita agora, opcionalmente, `stack` (até 8 tecnologias) e
+`changed_files` (até 15 nomes de arquivos). O contrato anterior continua
+funcionando se esses campos não forem enviados.
+
+O classificador possui o parâmetro interno `verified_roles`, que permite
+acrescentar papéis RBAC **somente depois de confirmação por autenticação
+confiável**, sem aceitar funções arbitrárias no corpo do POST. **Ainda não
+realizamos a ligação do contexto por usuário com o Módulo 1 para a chamada
+global de classificação**: atualmente a publicação não envia papéis ao LLM,
+e a personalização por projeto permanece na leitura da notificação. Isso
+evita inventar um papel para o proprietário do projeto.
+
+O contexto técnico nunca deve conter tokens, secrets, informações pessoais
+ou nomes de arquivos sensíveis. A classificação com IA segue opcional:
+sem chave de API e `NOTIFICATION_AI_ENABLED=true`, o fallback por regras
+continua ativo.
+
+
+### Prévia de IA com papel real do Módulo 1 (sem persistência)
+
+Foi acrescentado o endpoint autenticado
+`POST /api/bff/notifications/context-preview` para testar a classificação
+com contexto individual. Recebe `project_id`, `source`, `event_type`,
+`title`, `body`, `priority`, `stack` e `changed_files`.
+O usuário precisa ter acesso ao projeto. O backend consulta os papéis do
+próprio usuário no Módulo 1 usando seu JWT e passa somente os papéis
+**confirmados** ao classificador. O corpo da solicitação **não aceita**
+`verified_roles` nem outras funções informadas pelo cliente.
+
+A resposta mostra `verified_roles`, `roles_verified` e uma `notification`
+de demonstração com relevância personalizada. Se o Módulo 1 não confirmar
+o papel, o contexto da IA permanece vazio e a relevância é neutra.
+Ser proprietário do projeto não transforma o usuário em PO. Esta rota não
+insere, altera nem marca notificações como lidas e não grava dados no Neon.
+Com `NOTIFICATION_AI_ENABLED=false`, usa apenas as regras locais.
+
+**Escopo atual:** a publicação normal de eventos em
+`POST /api/integrations/notifications` permanece com classificação global,
+sem papéis individuais. A prévia é o ponto de integração contextual para
+testes autenticados; não representa ainda uma classificação personalizada
+persistida de cada destinatário. Não envie segredos ou dados pessoais no
+corpo da prévia.

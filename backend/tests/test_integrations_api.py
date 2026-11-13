@@ -41,3 +41,89 @@ def test_publish_notification_with_invalid_key(client):
     )
 
     assert response.status_code == 401
+
+def test_publish_notification_records_llm_classification(client, monkeypatch):
+    """O endpoint mantém contrato e grava a classificação fornecida pelo modelo."""
+    from app.domain.schemas import Priority
+    from app.notifications.classifier import Classification
+    import app.api.integrations as integrations
+
+    async def fake_classifier(**kwargs):
+        assert kwargs["incoming_priority"] == Priority.HIGH
+        return Classification(
+            priority=Priority.HIGH,
+            relevance_score=0.92,
+            reason="Revisão importante segundo o modelo.",
+            classified_by="llm",
+            summary="Revisão do código requer atenção.",
+            group_key="code-review",
+        )
+
+    monkeypatch.setattr(integrations, "classify_notification", fake_classifier)
+    response = client.post(
+        "/api/integrations/notifications",
+        headers={"X-Integration-Key": "dev-integration-key"},
+        json={**_payload(), "event_id": "test-event-llm-001"},
+    )
+    assert response.status_code == 200
+    notification = response.json()
+    assert notification["priority"] == "high"
+    assert notification["relevance_score"] == 0.92
+    assert notification["classified_by"] == "llm"
+    assert notification["reason"] == "Revisão importante segundo o modelo."
+    assert notification["summary"] == "Revisão do código requer atenção."
+    assert notification["group_key"] == "code-review"
+
+
+def test_invalid_key_does_not_invoke_llm(client, monkeypatch):
+    """Não há consulta externa antes da validação da chave de integração."""
+    import app.api.integrations as integrations
+
+    async def forbidden_classifier(**kwargs):
+        raise AssertionError("A IA não pode ser chamada com chave inválida")
+
+    monkeypatch.setattr(integrations, "classify_notification", forbidden_classifier)
+    response = client.post(
+        "/api/integrations/notifications",
+        headers={"X-Integration-Key": "invalid-integration-key"},
+        json={**_payload(), "event_id": "test-event-unauthorized"},
+    )
+    assert response.status_code == 401
+
+
+def test_integration_accepts_optional_technical_context(client, monkeypatch):
+    """Contexto técnico não modifica o contrato legado nem concede papéis."""
+    import app.api.integrations as integrations
+    from app.domain.schemas import Priority
+    from app.notifications.classifier import Classification
+
+    received = {}
+
+    async def fake_classifier(**kwargs):
+        received.update(kwargs)
+        return Classification(
+            priority=Priority.MEDIUM,
+            relevance_score=0.52,
+            reason="Prioridade recebida.",
+            classified_by="rules",
+            summary="Atualização do código.",
+            group_key="github",
+        )
+
+    monkeypatch.setattr(integrations, "classify_notification", fake_classifier)
+    payload = {
+        **_payload(),
+        "event_id": "technical-context-test-001",
+        "priority": "medium",
+        "stack": ["Python", "FastAPI"],
+        "changed_files": ["app/main.py"],
+    }
+    response = client.post(
+        "/api/integrations/notifications",
+        headers={"X-Integration-Key": "dev-integration-key"},
+        json=payload,
+    )
+    assert response.status_code == 200
+    assert received["stack"] == ("Python", "FastAPI")
+    assert received["changed_files"] == ("app/main.py",)
+    assert "verified_roles" not in received

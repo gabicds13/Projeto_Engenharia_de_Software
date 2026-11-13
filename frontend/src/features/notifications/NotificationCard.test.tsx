@@ -48,4 +48,41 @@ describe("NotificationCard", () => {
     expect(screen.getByText("Vulnerabilidade crítica no PR #42")).toBeInTheDocument();
     expect(screen.getByText(/agora|há/)).toBeInTheDocument();
   });
+
+  it("mostra resumo e agrupamento quando vierem da classificação", () => {
+    render(
+      <NotificationCard
+        notification={make({
+          summary: "Mudança importante exige uma revisão técnica.",
+          group_key: "code-review",
+        })}
+      />,
+    );
+    expect(screen.getByText(/Resumo:/)).toBeInTheDocument();
+    expect(screen.getByText("Mudança importante exige uma revisão técnica.")).toBeInTheDocument();
+    expect(screen.getByText("Grupo: Code Review")).toBeInTheDocument();
+    expect(screen.getByText("Classificado por IA")).toBeInTheDocument();
+  });
+
+  it("mantém notificações antigas sem os campos novos", () => {
+    render(<NotificationCard notification={make({ summary: null, group_key: null })} />);
+    expect(screen.getByText("Vulnerabilidade crítica no PR #42")).toBeInTheDocument();
+    expect(screen.queryByText(/Resumo:/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Grupo:/)).not.toBeInTheDocument();
+  });
+
+  it("não repete título como resumo no fallback por regras", () => {
+    render(
+      <NotificationCard
+        notification={make({
+          classified_by: "rules",
+          summary: "Vulnerabilidade crítica no PR #42",
+          group_key: "code_review",
+        })}
+      />,
+    );
+    expect(screen.queryByText(/Resumo:/)).not.toBeInTheDocument();
+    expect(screen.getByText("Grupo: Code Review")).toBeInTheDocument();
+    expect(screen.getByText("Classificado por regras")).toBeInTheDocument();
+  });
 });
