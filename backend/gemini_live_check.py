@@ -22,7 +22,7 @@ def isolated_settings() -> Settings:
     """
     return Settings(
         notification_ai_enabled=True,
-        notification_ai_model="gemini-2.5-flash-lite",
+        notification_ai_model="gemini-3.5-flash-lite",
         notification_ai_base_url="https://generativelanguage.googleapis.com/v1beta/openai",
         notification_ai_timeout_seconds=30,
         database_url=None,

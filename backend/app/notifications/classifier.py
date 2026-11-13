@@ -208,11 +208,33 @@ async def classify_notification(
             summary=result.summary,
             group_key=result.group_key,
         )
+    
     except httpx.HTTPStatusError as exc:
-        # Nunca registrar o corpo da resposta, headers ou URLs com possíveis segredos.
         code = exc.response.status_code
-        logger.warning("Classificação externa retornou HTTP %d; usando regras locais.", code)
-        return replace(fallback, diagnostic=f"http_status_{code}")
+        error_type = "nao_informado"
+
+        try:
+            error = exc.response.json().get("error", {})
+            if isinstance(error, dict):
+                for field in ("code", "status", "type"):
+                    value = error.get(field)
+                    if value in ("model_not_found", "not_found", "NOT_FOUND"):
+                        error_type = value
+                        break
+        except (ValueError, AttributeError):
+            pass
+
+        logger.warning(
+            "Erro Gemini: HTTP %d, tipo: %s",
+            code,
+            error_type
+        )
+
+        return replace(
+            fallback,
+            diagnostic=f"http_status_{code}_{error_type}"
+        )
+
     except httpx.TimeoutException:
         logger.warning("Tempo limite da classificação externa; usando regras locais.")
         return replace(fallback, diagnostic="timeout")
