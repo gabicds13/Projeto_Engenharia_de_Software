@@ -35,19 +35,22 @@ A versão documentada do Módulo 6 inclui **Dashboard, Central de Notificações
 
 - **Portal central**: navbar + Dashboard, Notificações e Chat, com tema claro/escuro e layout responsivo.
 - **Dashboard de métricas**: agrega commits, PRs, reviews e User Stories dos Módulos 1 e 2.
-- **Central de notificações**: consome o `ms-notifications`, exibe feed, sino com contador e toasts em tempo real.
-- **Chat da equipe**: consome o `ms-chat`, com salas por projeto e mensagens em tempo real.
+- **Central de notificações**: exibe feed, contador e avisos em tempo real; o backend possui rotas de ingestão, classificação e persistência opcional, com clientes mock/HTTP/banco conforme a configuração.
+- **Chat da equipe**: salas por projeto, histórico, menções e conversas privadas; o backend possui implementação por banco e clientes mock/HTTP selecionáveis.
 
-## O que este serviço **não** faz
+## Responsabilidades e fronteiras de integração
 
-Estas responsabilidades são de outros serviços do Módulo 6, consumidos por este portal:
+O repositório **contém implementações de Chat e Notificações no backend**, além das
+abstrações de clientes para serviços independentes. Sua operação real depende da
+configuração `USE_CHAT_DB`, `USE_NOTIFICATIONS_DB`, `USE_MOCKS` e das URLs externas.
 
-| Responsabilidade | Serviço dono |
-|------------------|--------------|
-| Ingestão de eventos, priorização por IA, persistência de notificações | `ms-notifications` |
-| Persistência e entrega do chat | `ms-chat` |
-| Emissão/validação de identidade (JWT), papéis e membros | Módulo 1 (Auth/Backlog) |
-| Métricas de código e PRs | Módulo 2 (GitHub) |
+| Responsabilidade | Implementação ou dependência |
+|------------------|-----------------------------|
+| Classificação/recebimento de notificações | Backend local do Módulo 6; integração com serviços produtores é separada |
+| Persistência do Chat e notificações | Clientes de banco opcionais no backend; clientes externos/mocks alternativos |
+| Autenticação real, permissões, projetos e papéis | Módulo 1 (Auth/Projetos/Backlog), com validação de acesso no BFF |
+| Métricas de código e Pull Requests | Módulo 2 (GitHub), ou mocks marcados como demonstração |
+| Assistente conversacional RAG | Módulo 7 — não é o Chat humano do Módulo 6 |
 
 ## Arquitetura
 
