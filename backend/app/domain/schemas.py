@@ -97,6 +97,7 @@ class DashboardCard(BaseModel):
     key: str
     state: CardState
     stale: bool = False
+    data_origin: Literal["real", "mock"] = "real"
     value: object | None = None
 
 

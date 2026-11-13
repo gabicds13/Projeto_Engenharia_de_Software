@@ -40,6 +40,11 @@ def test_dashboard_returns_cards(client):
     assert body["project_id"] == "proj-123"
     assert len(body["cards"]) == 4
     assert body["weekly"]["state"] == "ok"
+    assert body["weekly"]["data_origin"] == "mock"
+    origins = {card["key"]: card["data_origin"] for card in body["cards"]}
+    assert origins["commits_week"] == "mock"
+    assert origins["open_prs"] == "mock"
+    assert origins["stories_by_status"] == "mock"
 
 
 def test_dashboard_forbidden_for_other_project(client):

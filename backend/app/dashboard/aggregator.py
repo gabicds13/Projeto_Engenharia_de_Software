@@ -20,21 +20,24 @@ class MetricsAggregator:
         backlog: BacklogClient,
         github: GithubClient,
         registry: ResilienceRegistry,
+        mock_keys: frozenset[str] = frozenset(),
     ):
         self._backlog = backlog
         self._github = github
         self._reg = registry
+        self._mock_keys = mock_keys
 
     async def _card(self, key: str, project_id: str, factory) -> DashboardCard:
+        origin = "mock" if key in self._mock_keys else "real"
         try:
             result = await self._reg.guarded_call(f"{key}:{project_id}", factory)
         except UpstreamUnavailable:
-            return DashboardCard(key=key, state="unavailable", stale=False, value=None)
+            return DashboardCard(key=key, state="unavailable", stale=False, data_origin=origin, value=None)
         value = result.value
         # Serializa pydantic -> dict quando aplicável
         if hasattr(value, "model_dump"):
             value = value.model_dump(mode="json")
-        return DashboardCard(key=key, state="ok", stale=result.stale, value=value)
+        return DashboardCard(key=key, state="ok", stale=result.stale, data_origin=origin, value=value)
 
     async def build(self, project_id: str) -> DashboardResponse:
         # As fontes sao independentes: consultar em paralelo evita somar atrasos.
