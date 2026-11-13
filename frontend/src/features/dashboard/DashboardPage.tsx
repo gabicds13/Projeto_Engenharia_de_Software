@@ -270,6 +270,9 @@ export function DashboardPage() {
         <h2 className="mb-3 text-lg font-semibold text-text">
           PRs e commits por semana
         </h2>
+        {data.weekly.state === "ok" && data.weekly.data_origin === "mock" && (
+          <p className="mb-3 text-xs text-text-muted">Dados de demonstração (simulados)</p>
+        )}
 
         {data.weekly.state === "unavailable" ? (
           <p className="text-sm text-text-muted">
@@ -297,7 +300,7 @@ function SimpleMetric({
   }
 
   return (
-    <MetricCard label={label} state={card.state} stale={card.stale}>
+    <MetricCard label={label} state={card.state} stale={card.stale} dataOrigin={card.data_origin}>
       <MetricNumber value={Number(card.value ?? 0)} />
     </MetricCard>
   );
@@ -320,6 +323,7 @@ function StoriesMetric({ card }: { card?: DashboardCard }) {
       label={CARD_LABELS.stories_by_status}
       state="ok"
       stale={card.stale}
+      dataOrigin={card.data_origin}
     >
       <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-text">
         <Stat label="A fazer" value={stories.todo} />
