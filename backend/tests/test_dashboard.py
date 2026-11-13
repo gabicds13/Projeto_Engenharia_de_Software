@@ -119,3 +119,33 @@ async def test_queda_ambos_modulos_dashboard_responde_sem_erro():
     assert len(resp.cards) == 4
     assert all(c.state == "unavailable" for c in resp.cards)
     assert resp.weekly.state == "unavailable"
+
+
+async def test_origem_simulada_identifica_apenas_metricas_mockadas():
+    agg = MetricsAggregator(
+        MockBacklogClient(),
+        MockGithubClient(),
+        _registry(),
+        mock_keys=frozenset({"commits_week", "open_prs", "weekly"}),
+    )
+    response = await agg.build("proj-123")
+    cards = {card.key: card for card in response.cards}
+    assert cards["commits_week"].data_origin == "mock"
+    assert cards["open_prs"].data_origin == "mock"
+    assert response.weekly.data_origin == "mock"
+    assert cards["stories_by_status"].data_origin == "real"
+    assert cards["reviews_pending"].data_origin == "real"
+
+
+async def test_metrica_simulada_indisponivel_nao_recebe_valor_falso():
+    agg = MetricsAggregator(
+        MockBacklogClient(),
+        _FullyBrokenGithub(),
+        _registry(),
+        mock_keys=frozenset({"commits_week", "open_prs", "weekly"}),
+    )
+    response = await agg.build("proj-123")
+    cards = {card.key: card for card in response.cards}
+    assert cards["commits_week"].state == "unavailable"
+    assert cards["commits_week"].data_origin == "mock"
+    assert cards["commits_week"].value is None
