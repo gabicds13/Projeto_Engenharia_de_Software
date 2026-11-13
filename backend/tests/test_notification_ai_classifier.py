@@ -403,7 +403,7 @@ async def test_diagnostico_http_403_nao_revela_resposta_ou_chave(monkeypatch, ca
         ),
     )
     assert result.classified_by == "rules"
-    assert result.diagnostic == "http_status_403"
+    assert result.diagnostic == "http_status_403_nao_informado"
     assert "private-secret-provider-response" not in caplog.text
     assert "chave-ficticia-super-secreta" not in caplog.text
 
