@@ -75,6 +75,7 @@ export interface DashboardCard {
   key: string;
   state: "ok" | "unavailable";
   stale: boolean;
+  data_origin?: "real" | "mock";
   value: unknown;
 }
 
