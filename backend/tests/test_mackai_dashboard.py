@@ -3,13 +3,28 @@ from __future__ import annotations
 
 import httpx
 import pytest
+from datetime import UTC, datetime, timedelta
+from jose import jwt
 
 from app.clients.mackai_client import MackaiUnavailable, fetch_mackai_metrics
 from app.core.config import get_settings
 from app.dashboard import router as dashboard_router
 from app.domain.schemas import MackaiMetrics
 
-from test_dashboard_api import _token
+def _token(project_ids=("proj-123",)):
+    settings = get_settings()
+    now = datetime.now(UTC)
+    return jwt.encode(
+        {
+            "sub": "mackai-test-user",
+            "role": "DEV",
+            "project_ids": list(project_ids),
+            "iat": now,
+            "exp": now + timedelta(hours=1),
+        },
+        settings.jwt_secret,
+        algorithm=settings.jwt_algorithm,
+    )
 
 
 def _metrics(project_id: str = "proj-123") -> dict:
