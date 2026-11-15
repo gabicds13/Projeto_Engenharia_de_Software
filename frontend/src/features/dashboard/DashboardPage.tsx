@@ -8,6 +8,7 @@ import type {
   WeeklyPoint,
 } from "../../lib/types";
 import { MetricCard, MetricNumber } from "./MetricCard";
+import { CodeReviewPanel } from "./CodeReviewPanel";
 import { WeeklyChart } from "./WeeklyChart";
 
 interface Project {
@@ -285,6 +286,8 @@ export function DashboardPage() {
           />
         )}
       </div>
+
+      <CodeReviewPanel key={projectId} projectId={projectId} />
 
       <MackaiPanel result={data.mackai} />
     </section>
