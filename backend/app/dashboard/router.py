@@ -1,18 +1,21 @@
 """Rota do dashboard: agrega métricas dos Módulos 1 e 2."""
 from __future__ import annotations
 
+import asyncio
+
 from fastapi import APIRouter, Depends, Query
 
 from app.clients import get_backlog_client, get_github_client
 from app.clients.backlog_client import HttpBacklogClient, MockBacklogClient
 from app.clients.github_client import HttpGithubClient, MockGithubClient
+from app.clients.mackai_client import MackaiUnavailable, fetch_mackai_metrics
 from app.clients.projects_client import ensure_project_access
 from app.core.config import Settings, get_settings
 from app.core.errors import ForbiddenError
 from app.core.resilience import get_registry
 from app.core.security import CurrentUser, get_current_user
 from app.dashboard.aggregator import MetricsAggregator
-from app.domain.schemas import DashboardResponse
+from app.domain.schemas import DashboardResponse, MackaiMetricsResult
 
 router = APIRouter(prefix="/api/bff/dashboard", tags=["dashboard"])
 
@@ -63,4 +66,20 @@ async def get_dashboard(
         cache_scope=f"user:{user.user_id}",
     )
 
-    return await aggregator.build(project_id)
+    async def load_mackai() -> MackaiMetricsResult:
+        if not settings.mackai_metrics_enabled:
+            return MackaiMetricsResult(state="disabled")
+        try:
+            metrics = await fetch_mackai_metrics(
+                base_url=settings.mackai_url,
+                project_id=project_id,
+                access_token=user.access_token,
+                timeout=settings.mackai_timeout_seconds,
+            )
+            return MackaiMetricsResult(state="ok", metrics=metrics)
+        except MackaiUnavailable:
+            return MackaiMetricsResult(state="unavailable")
+
+    # A indisponibilidade do M7 não deve atrasar as consultas do M1/M2.
+    dashboard, mackai = await asyncio.gather(aggregator.build(project_id), load_mackai())
+    return dashboard.model_copy(update={"mackai": mackai})
