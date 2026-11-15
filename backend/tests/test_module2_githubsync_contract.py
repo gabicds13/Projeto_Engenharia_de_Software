@@ -51,7 +51,7 @@ def _m2_mock(monkeypatch, *, today=None):
         if path == "/api/v1/pull-requests":
             return {
                 "results": [
-                    {"opened_at": (monday + timedelta(days=2)).isoformat()},
+                    {"opened_at": monday.isoformat()},
                 ] if rid == 12 else [],
                 "next": None,
             }
