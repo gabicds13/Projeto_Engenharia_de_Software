@@ -79,10 +79,27 @@ export interface DashboardCard {
   value: unknown;
 }
 
+export interface MackaiMetrics {
+  project_id: string;
+  conversations: number;
+  users: number;
+  questions: number;
+  answers_up: number;
+  answers_down: number;
+  answers_not_grounded: number;
+  last_question_at: string | null;
+}
+
+export interface MackaiMetricsResult {
+  state: "ok" | "unavailable" | "disabled";
+  metrics: MackaiMetrics | null;
+}
+
 export interface DashboardResponse {
   project_id: string;
   cards: DashboardCard[];
   weekly: DashboardCard;
+  mackai?: MackaiMetricsResult;
 }
 
 export interface ChatMessage {
