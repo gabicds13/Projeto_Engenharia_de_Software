@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, Query
 
 from app.clients import get_backlog_client, get_github_client
 from app.clients.backlog_client import HttpBacklogClient, MockBacklogClient
-from app.clients.github_client import MockGithubClient
+from app.clients.github_client import HttpGithubClient, MockGithubClient
 from app.clients.projects_client import ensure_project_access
 from app.core.config import Settings, get_settings
 from app.core.errors import ForbiddenError
@@ -40,7 +40,15 @@ async def get_dashboard(
             },
         )
 
-    github_client = get_github_client()
+    # O Módulo 2 exige Bearer RS256 do Módulo 1 e isola métricas por usuário.
+    # A flag permite testar M2 real mantendo mocks nos outros módulos.
+    if settings.use_githubsync_real or not settings.use_mocks:
+        github_client = HttpGithubClient(
+            settings.github_url,
+            headers={"Authorization": f"Bearer {user.access_token}"},
+        )
+    else:
+        github_client = get_github_client()
     mock_keys: set[str] = set()
     if isinstance(github_client, MockGithubClient):
         mock_keys.update(("commits_week", "open_prs", "weekly"))
@@ -52,6 +60,7 @@ async def get_dashboard(
         github=github_client,
         registry=get_registry(),
         mock_keys=frozenset(mock_keys),
+        cache_scope=f"user:{user.user_id}",
     )
 
     return await aggregator.build(project_id)
