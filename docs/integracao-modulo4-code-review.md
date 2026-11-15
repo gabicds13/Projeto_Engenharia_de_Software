@@ -44,13 +44,16 @@ O cliente exige HTTPS e não segue redirecionamentos.
 
 ## Pendências para a integração completa
 
-- Frontend: seção de **revisões realizadas** no Dashboard, com estado indisponível e `history_limited` visível.
+- Frontend: **implementado** painel de revisões realizadas, com link para PR, achados por gravidade, limitação de 20 análises e estado indisponível independente.
 - Contrato M4: histórico paginado/filtrado por projeto ou PR e campo de estado de revisão, para que `Reviews pendentes` seja uma métrica confiável.
 - Fluxo M4→M6 de notificações: depende de suporte do produtor no grupo M4.
 - Teste ponta a ponta com conta real do M1, repositório do M2 e senha compartilhada exclusivamente por meio seguro do Azure.
 - Não disparar `POST /api/analisar` ou `/comentar` automaticamente: são ações que geram análise ou publicações no GitHub, diferentes da leitura do histórico.
 
 ## Testes
+
+`frontend/src/features/dashboard/CodeReviewPanel.test.tsx`: apresentação dos achados, estado vazio, falha isolada e ausência de dados de outros projetos.
+
 
 `backend/tests/test_module4_code_review.py`: auth do BFF, acesso negado ao projeto, vínculo M2,
 filtro seguro, Basic Auth, ausência de conteúdo privado e resposta 503.
