@@ -3,6 +3,7 @@ import { api, ApiError } from "../../lib/apiClient";
 import type {
   DashboardCard,
   DashboardResponse,
+  MackaiMetricsResult,
   StoriesByStatus,
   WeeklyPoint,
 } from "../../lib/types";
@@ -284,6 +285,53 @@ export function DashboardPage() {
           />
         )}
       </div>
+
+      <MackaiPanel result={data.mackai} />
+    </section>
+  );
+}
+
+const MACKAI_URL = "https://mackai-conversas.calmfield-d7c6c49f.brazilsouth.azurecontainerapps.io/";
+
+function MackaiPanel({ result }: { result?: MackaiMetricsResult }) {
+  const metrics = result?.state === "ok" ? result.metrics : null;
+  const stats = metrics ? [
+    { label: "Conversas", value: metrics.conversations },
+    { label: "Perguntas", value: metrics.questions },
+    { label: "Usuários", value: metrics.users },
+    { label: "Avaliações positivas", value: metrics.answers_up },
+    { label: "Avaliações negativas", value: metrics.answers_down },
+    { label: "Respostas sem fontes", value: metrics.answers_not_grounded },
+  ] : [];
+  return (
+    <section className="rounded-lg border border-border bg-surface p-4" aria-label="MackAI - Módulo 7">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+        <h2 className="text-lg font-semibold text-text">MackAI — Módulo 7</h2>
+        <a
+          href={MACKAI_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="rounded-md bg-primary px-3 py-2 text-sm font-medium text-white"
+        >
+          Abrir assistente
+        </a>
+      </div>
+      {metrics ? (
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+          {stats.map((stat) => (
+            <div key={stat.label} className="rounded-md border border-border p-3">
+              <p className="text-xs text-text-muted">{stat.label}</p>
+              <p className="metric mt-1 text-xl font-semibold text-text">{stat.value}</p>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="text-sm text-text-muted">
+          {result?.state === "unavailable"
+            ? "Métricas do MackAI indisponíveis no momento. As outras áreas continuam funcionando."
+            : "Métricas do MackAI ainda não ativadas neste ambiente."}
+        </p>
+      )}
     </section>
   );
 }
