@@ -44,7 +44,7 @@ describe("Painel de revisões do Módulo 4", () => {
   });
 
   it("mantém as métricas isoladas quando o M4 está indisponível", async () => {
-    getMock.mockRejectedValue(new Error("offline"));
+    getMock.mockRejectedValueOnce(new Error("offline"));
     render(<CodeReviewPanel projectId="proj-1" />);
     expect(await screen.findByRole("status"))
       .toHaveTextContent("Histórico de revisões indisponível");
