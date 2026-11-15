@@ -79,4 +79,45 @@ describe("Dashboard resiliente", () => {
     expect(screen.getByRole("button", { name: "Tentar novamente" })).toBeInTheDocument();
     await waitFor(() => expect(getMock).toHaveBeenCalledWith("/api/bff/dashboard?project_id=proj-1"));
   });
+  it("mostra métricas do Módulo 7 quando a API responde", async () => {
+    getMock.mockImplementation((path: string) => {
+      if (path === "/api/bff/projects") return Promise.resolve([{ id: "proj-1" }]);
+      return Promise.resolve({
+        ...result,
+        mackai: {
+          state: "ok",
+          metrics: {
+            project_id: "proj-1",
+            conversations: 12,
+            users: 4,
+            questions: 57,
+            answers_up: 21,
+            answers_down: 3,
+            answers_not_grounded: 6,
+            last_question_at: null,
+          },
+        },
+      });
+    });
+    render(<DashboardPage />);
+    const panel = await screen.findByRole("region", { name: "MackAI - Módulo 7" });
+    expect(panel).toHaveTextContent("Conversas");
+    expect(panel).toHaveTextContent("Perguntas");
+    expect(panel).toHaveTextContent("57");
+    expect(screen.getByRole("link", { name: "Abrir assistente" }))
+      .toHaveAttribute("rel", "noopener noreferrer");
+    expect(screen.getByText("Commits na semana")).toBeInTheDocument();
+  });
+
+  it("informa quando as métricas MackAI estão indisponíveis", async () => {
+    getMock.mockImplementation((path: string) =>
+      path === "/api/bff/projects"
+        ? Promise.resolve([{ id: "proj-1" }])
+        : Promise.resolve({ ...result, mackai: { state: "unavailable", metrics: null } }),
+    );
+    render(<DashboardPage />);
+    expect(await screen.findByText(/Métricas do MackAI indisponíveis/)).toBeInTheDocument();
+    expect(screen.getByText("Commits na semana")).toBeInTheDocument();
+  });
+
 });
