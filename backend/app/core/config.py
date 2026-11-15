@@ -30,6 +30,8 @@ class Settings(BaseSettings):
     # Mocks dos serviços downstream (demo sem os outros grupos no ar)
     use_mocks: bool = True
     use_backlog_mock: bool = False
+    # Integração real do Módulo 2, independente dos mocks dos demais módulos.
+    use_githubsync_real: bool = False
 
     # Autenticação (JWT emitido pelo Módulo 1)
     jwt_secret: str = "dev-secret-change-me"
