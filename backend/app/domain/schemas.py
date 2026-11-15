@@ -101,10 +101,29 @@ class DashboardCard(BaseModel):
     value: object | None = None
 
 
+class MackaiMetrics(BaseModel):
+    """Contrato real de GET /api/projects/{project_id}/metrics do Módulo 7."""
+
+    project_id: str
+    conversations: int = Field(ge=0, strict=True)
+    users: int = Field(ge=0, strict=True)
+    questions: int = Field(ge=0, strict=True)
+    answers_up: int = Field(ge=0, strict=True)
+    answers_down: int = Field(ge=0, strict=True)
+    answers_not_grounded: int = Field(ge=0, strict=True)
+    last_question_at: datetime | None = None
+
+
+class MackaiMetricsResult(BaseModel):
+    state: Literal["ok", "unavailable", "disabled"] = "disabled"
+    metrics: MackaiMetrics | None = None
+
+
 class DashboardResponse(BaseModel):
     project_id: str
     cards: list[DashboardCard]
     weekly: DashboardCard  # série do gráfico, também sujeita a indisponibilidade
+    mackai: MackaiMetricsResult = Field(default_factory=MackaiMetricsResult)
 
 
 # ---------------------------------------------------------------------------
