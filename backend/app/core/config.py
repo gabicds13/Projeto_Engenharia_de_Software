@@ -32,6 +32,10 @@ class Settings(BaseSettings):
     use_backlog_mock: bool = False
     # Integração real do Módulo 2, independente dos mocks dos demais módulos.
     use_githubsync_real: bool = False
+    # Métricas por projeto do MackAI (Módulo 7), somente com Bearer real do M1.
+    mackai_metrics_enabled: bool = False
+    mackai_url: str = "https://mackai-conversas.calmfield-d7c6c49f.brazilsouth.azurecontainerapps.io"
+    mackai_timeout_seconds: float = 5.0
 
     # Autenticação (JWT emitido pelo Módulo 1)
     jwt_secret: str = "dev-secret-change-me"
