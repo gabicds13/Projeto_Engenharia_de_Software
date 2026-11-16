@@ -1,6 +1,7 @@
 import { NavLink } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import { useTheme } from "../theme/ThemeProvider";
+import { ExternalModulesMenu } from "./ExternalModulesMenu";
 
 const linkBase =
   "px-3 py-2 rounded-md text-md font-medium transition-colors";
@@ -48,6 +49,7 @@ const linkBase =
               <span className="max-w-full break-all text-sm text-white/80">
                 {user.user_id} · {user.role}
               </span>
+              <ExternalModulesMenu />
               <button
                 type="button"
                 onClick={logout}

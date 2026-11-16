@@ -74,7 +74,18 @@ async def test_m2_real_soma_kpis_dos_repositorios_do_projeto(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_m2_real_monta_grafico_sem_dados_inventados(monkeypatch):
-    _m2_mock(monkeypatch)
+    # Data fixa evita falha na virada do domingo para segunda (UTC).
+    from app.clients import github_client as github_module
+
+    fixed_now = datetime(2026, 11, 11, 12, tzinfo=UTC)
+
+    class FrozenDateTime(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return fixed_now if tz is None else fixed_now.astimezone(tz)
+
+    monkeypatch.setattr(github_module, "datetime", FrozenDateTime)
+    _m2_mock(monkeypatch, today=fixed_now)
     github = HttpGithubClient("https://m2.example")
     series = await github.weekly_commits_prs("proj-123")
     assert len(series.points) == 5
