@@ -62,3 +62,16 @@ O segundo teste real do [workflow smoke M5](https://github.com/gabicds13/Projeto
 A camada HTTP está integrada e o formato foi aceito pelo cliente. Falta dado persistido na fonte M5. O repositório M5 contém o coletor `app/coletor.py`, que executa `coletar_fontes` e `salvar_artigos` no próprio banco; é o grupo M5 quem deve verificar sua configuração e execução, persistência e alimentação do feed. Não criar notícias fictícias para completar a validação.
 
 Mantemos o PR em rascunho e a flag desativada no ambiente de produção até haver artigos reais e teste de interface completo.
+
+## Critério atualizado para smoke de conectividade
+
+O smoke do BFF foi separado da validação de conteúdo:
+- **HTTP 200 com `articles: []`** valida a conexão e o contrato da API, sem fabricar artigos, e imprime aviso de feed vazio;
+- **HTTP diferente de 200 ou JSON inválido** continua falhando no CI;
+- **Validação de artigos reais no painel** segue pendente até o grupo 5 alimentar a base.
+
+O bloqueio de cadastro de repositório na interface M5 é distinto: o upstream em
+`app/integracoes.py` consulta `/projects/{id}/access/v2` usando `M1_BASE_URL`
+(serviço de identidade); essa rota pertence ao serviço de Projetos M1.
+A equipe M5 precisa ajustar a variável de base do serviço de projetos, testar a
+autorização com uma conta real e publicar a alteração. Não desabilitar a validação.
