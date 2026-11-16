@@ -37,3 +37,15 @@ O acesso ao feed de tendências não exige senha própria do M5.
 4. Se o grupo quiser recomendações por projeto, integrar separadamente com JWT M1 e teste de permissão.
 
 Não há neste PR alteração na integração Módulo 4 nem no seu PR em rascunho.
+
+## Resultado do smoke test real (15/11/2026, horário de Brasília)
+
+O workflow [Smoke real Módulo 5 Curadoria](https://github.com/gabicds13/Projeto_Engenharia_de_Software/actions/runs/43782338162) executou a rota do **nosso BFF**, com `CURADORIA_ENABLED=true`, para consultar `GET /em-alta?limite=6` no endereço Azure fornecido pelo grupo 5.
+
+Resultado registrado:
+- O endereço do M5 respondeu **HTTP 403 Site Disabled**, sem retornar artigos;
+- O BFF respondeu **HTTP 503 Service Unavailable** de maneira controlada;
+- A integração real **não está validada** e o PR deve continuar como rascunho;
+- Não significa que o contrato JSON esteja incorreto: o teste não chegou a uma resposta 200 do M5.
+
+Próximo passo: solicitar ao grupo do M5 que reative/verifique a publicação Azure (e confirme a URL); repetir o mesmo smoke e conferir os artigos antes do merge.
