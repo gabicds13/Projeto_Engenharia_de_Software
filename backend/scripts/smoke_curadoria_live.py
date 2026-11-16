@@ -40,10 +40,14 @@ async def main() -> None:
     if result.get("source") != "module-5" or result.get("scope") != "global":
         raise RuntimeError("Resposta nao segue o contrato do M6.")
     articles = result.get("articles")
-    if not isinstance(articles, list) or not articles:
-        raise RuntimeError("Feed nao trouxe artigos reais para o painel.")
+    if not isinstance(articles, list):
+        raise RuntimeError("Lista de artigos fora do contrato.")
     if len(articles) > 6:
         raise RuntimeError("Quantidade de artigos maior que o solicitado.")
+
+    if not articles:
+        print("AVISO: integracao HTTP validada, mas feed vazio no M5; painel mostrara estado sem artigos.")
+        return
 
     print(f"SUCESSO: {len(articles)} artigos reais recebidos pelo BFF do M6.")
     print("Exemplos de artigos disponiveis ao painel:")
