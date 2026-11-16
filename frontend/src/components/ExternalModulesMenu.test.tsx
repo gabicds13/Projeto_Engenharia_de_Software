@@ -8,12 +8,14 @@ describe("Menu de outros módulos", () => {
     fireEvent.click(screen.getByText("Outros módulos"));
 
     const links = screen.getAllByRole("link");
-    expect(links).toHaveLength(4);
+    expect(links).toHaveLength(5);
     expect(screen.getByText("Módulo 1")).toBeInTheDocument();
     expect(screen.getByText("Módulo 2")).toBeInTheDocument();
+    expect(screen.getByText("Módulo 4")).toBeInTheDocument();
     expect(screen.getByText("Módulo 5")).toBeInTheDocument();
     expect(screen.getByText("Módulo 7")).toBeInTheDocument();
-    expect(screen.queryByText("Módulo 4")).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Módulo 4/ }))
+      .toHaveAttribute("href", "https://revisor-codigo-ia-gio-ach9dbg3g9ekazf3.chilecentral-01.azurewebsites.net/");
     for (const link of links) {
       expect(link).toHaveAttribute("target", "_blank");
       expect(link).toHaveAttribute("rel", "noopener noreferrer");
