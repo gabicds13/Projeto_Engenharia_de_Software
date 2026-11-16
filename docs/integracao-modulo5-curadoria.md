@@ -49,3 +49,16 @@ Resultado registrado:
 - Não significa que o contrato JSON esteja incorreto: o teste não chegou a uma resposta 200 do M5.
 
 Próximo passo: solicitar ao grupo do M5 que reative/verifique a publicação Azure (e confirme a URL); repetir o mesmo smoke e conferir os artigos antes do merge.
+
+
+## Revalidação em 16/11/2026 — API ativa, feed vazio
+
+O segundo teste real do [workflow smoke M5](https://github.com/gabicds13/Projeto_Engenharia_de_Software/actions/runs/43782433476) (tentativa 2, 16:04 UTC) comprovou:
+
+- `GET https://agente-tendencias-tecnologicas-fyd3bzerc9a2cqcu.chilecentral-01.azurewebsites.net/em-alta?limite=6` -> **HTTP 200**.
+- `GET /api/bff/curadoria/em-alta` executado pelo próprio BFF M6 -> **HTTP 200**.
+- A lista `articles` veio **vazia**; por isso o teste E2E foi corretamente marcado como falha (sem artigos reais para renderizar).
+
+A camada HTTP está integrada e o formato foi aceito pelo cliente. Falta dado persistido na fonte M5. O repositório M5 contém o coletor `app/coletor.py`, que executa `coletar_fontes` e `salvar_artigos` no próprio banco; é o grupo M5 quem deve verificar sua configuração e execução, persistência e alimentação do feed. Não criar notícias fictícias para completar a validação.
+
+Mantemos o PR em rascunho e a flag desativada no ambiente de produção até haver artigos reais e teste de interface completo.
