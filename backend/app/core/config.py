@@ -37,6 +37,11 @@ class Settings(BaseSettings):
     mackai_url: str = "https://mackai-conversas.calmfield-d7c6c49f.brazilsouth.azurecontainerapps.io"
     mackai_timeout_seconds: float = 5.0
 
+    # Feed público "Em alta" do Módulo 5; desligado até teste real no Azure.
+    curadoria_enabled: bool = False
+    curadoria_url: str = "https://agente-tendencias-tecnologicas-fyd3bzerc9a2cqcu.chilecentral-01.azurewebsites.net"
+    curadoria_timeout_seconds: float = 5.0
+
     # Autenticação (JWT emitido pelo Módulo 1)
     jwt_secret: str = "dev-secret-change-me"
     jwt_algorithm: str = "HS256"
