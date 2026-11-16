@@ -26,6 +26,7 @@ jobs:
       - name: Consultar API pública real via BFF
         working-directory: backend
         env:
+          PYTHONPATH: .
           APP_ENV: development
           CURADORIA_ENABLED: "true"
           CURADORIA_URL: https://agente-tendencias-tecnologicas-fyd3bzerc9a2cqcu.chilecentral-01.azurewebsites.net
