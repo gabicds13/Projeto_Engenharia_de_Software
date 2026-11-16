@@ -95,6 +95,21 @@ export interface MackaiMetricsResult {
   metrics: MackaiMetrics | null;
 }
 
+export interface CuradoriaArticle {
+  title: string;
+  url: string;
+  source: string;
+  category: string;
+  published_at: string | null;
+}
+
+export interface CuradoriaEmAltaResponse {
+  source: "module-5";
+  scope: "global";
+  updated_at: string;
+  articles: CuradoriaArticle[];
+}
+
 export interface DashboardResponse {
   project_id: string;
   cards: DashboardCard[];
