@@ -1,0 +1,37 @@
+name: Smoke real Módulo 5 Curadoria
+
+on:
+  pull_request:
+    paths:
+      - "backend/app/clients/curadoria_client.py"
+      - "backend/app/api/curadoria.py"
+      - "backend/scripts/smoke_curadoria_live.py"
+      - ".github/workflows/smoke-modulo5-live.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  smoke-m5:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Instalar dependências do BFF
+        run: python -m pip install -r backend/requirements.txt
+      - name: Consultar API pública real via BFF
+        working-directory: backend
+        env:
+          APP_ENV: development
+          CURADORIA_ENABLED: "true"
+          CURADORIA_URL: https://agente-tendencias-tecnologicas-fyd3bzerc9a2cqcu.chilecentral-01.azurewebsites.net
+          CURADORIA_TIMEOUT_SECONDS: "12"
+          JWT_SECRET: smoke-local-test-secret
+          USE_MOCKS: "true"
+          USE_CHAT_DB: "false"
+          USE_NOTIFICATIONS_DB: "false"
+        run: python scripts/smoke_curadoria_live.py
