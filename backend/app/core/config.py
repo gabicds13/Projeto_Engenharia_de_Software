@@ -37,6 +37,14 @@ class Settings(BaseSettings):
     mackai_url: str = "https://mackai-conversas.calmfield-d7c6c49f.brazilsouth.azurecontainerapps.io"
     mackai_timeout_seconds: float = 5.0
 
+    # Integração Módulo 4 (Code Review), desligada por padrão.
+    # A senha Basic Auth deve vir de secret do backend, nunca do frontend.
+    code_review_enabled: bool = False
+    code_review_url: str = "https://revisor-codigo-ia-gio-ach9dbg3g9ekazf3.chilecentral-01.azurewebsites.net"
+    code_review_username: str = "revisor"
+    code_review_password: str | None = None
+    code_review_timeout_seconds: float = 5.0
+
     # Autenticação (JWT emitido pelo Módulo 1)
     jwt_secret: str = "dev-secret-change-me"
     jwt_algorithm: str = "HS256"

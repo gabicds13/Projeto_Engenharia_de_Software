@@ -95,6 +95,23 @@ export interface MackaiMetricsResult {
   metrics: MackaiMetrics | null;
 }
 
+export interface CodeReviewSummary {
+  id: string;
+  reviewed_at: string;
+  pr_url: string;
+  architecture: string;
+  findings_count: number;
+  severity_counts: Record<string, number>;
+}
+
+export interface CodeReviewsResponse {
+  project_id: string;
+  source: "module-4";
+  history_limited: true;
+  pending_reviews: null;
+  items: CodeReviewSummary[];
+}
+
 export interface DashboardResponse {
   project_id: string;
   cards: DashboardCard[];

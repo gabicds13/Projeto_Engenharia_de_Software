@@ -45,6 +45,10 @@ def create_app() -> FastAPI:
 
     app.include_router(projects_router)
 
+    from app.api.code_reviews import router as code_reviews_router
+
+    app.include_router(code_reviews_router)
+
     from app.api.integrations import router as integrations_router
 
     app.include_router(integrations_router)
