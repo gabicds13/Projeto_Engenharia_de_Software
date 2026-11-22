@@ -16,7 +16,6 @@ import {
 } from "../lib/apiClient";
 
 import type { Role } from "../lib/types";
-import { DEMO_MODE } from "../lib/demoMode";
 
 interface SessionUser {
   user_id: string;
@@ -30,7 +29,6 @@ interface AuthState {
   loginWithToken: (token: string) => void;
   loginReal: (email: string, password: string) => Promise<void>;
   loginDev: (profile: "po" | "pm" | "dev") => Promise<void>;
-  loginDemo: () => void;
   logout: () => void;
 }
 
@@ -51,14 +49,11 @@ function decode(token: string): SessionUser | null {
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [token, setTokenState] = useState<string | null>(() => DEMO_MODE ? null : getToken());
-  const [demoSession, setDemoSession] = useState(false);
+  const [token, setTokenState] = useState<string | null>(() => getToken());
 
   const user = useMemo(
-    () => DEMO_MODE
-      ? demoSession ? { user_id: "usuario-demo", role: "PM" as Role, project_ids: ["projeto-demo-modulo6"] } : null
-      : token ? decode(token) : null,
-    [token, demoSession],
+    () => (token ? decode(token) : null),
+    [token],
   );
 
   const loginWithToken = useCallback((newToken: string) => {
@@ -92,15 +87,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [loginWithToken],
   );
 
-  const loginDemo = useCallback(() => {
-    if (!DEMO_MODE) return;
-    setDemoSession(true);
-  }, []);
-
   const logout = useCallback(() => {
-    if (!DEMO_MODE) setToken(null);
+    setToken(null);
     setTokenState(null);
-    setDemoSession(false);
   }, []);
 
   useEffect(() => {
@@ -114,7 +103,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       loginWithToken,
       loginReal,
       loginDev,
-      loginDemo,
       logout,
     }),
     [
@@ -123,7 +111,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       loginWithToken,
       loginReal,
       loginDev,
-      loginDemo,
       logout,
     ],
   );

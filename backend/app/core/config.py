@@ -88,6 +88,10 @@ class Settings(BaseSettings):
     # DESLIGUE quando a autenticação real estiver integrada.
     enable_dev_login: bool = False
 
+    # Substitui exclusivamente a listagem de projetos de dev quando M1 esta offline.
+    # So pode ser habilitado em APP_ENV=development.
+    module1_offline_demo: bool = False
+
     # URLs dos serviços downstream (usadas quando use_mocks=false)
     notifications_url: str = "http://ms-notifications:8000"
     chat_url: str = "http://ms-chat:8000"
@@ -110,6 +114,10 @@ class Settings(BaseSettings):
     @property
     def is_dev(self) -> bool:
         return self.app_env == "development"
+
+    @property
+    def module1_offline_enabled(self) -> bool:
+        return self.app_env == "development" and self.module1_offline_demo
 
     @property
     def dev_login_enabled(self) -> bool:

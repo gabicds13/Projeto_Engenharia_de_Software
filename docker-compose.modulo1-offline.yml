@@ -1,0 +1,9 @@
+# Opcional somente em desenvolvimento; inicia o backend REAL e o banco.
+# docker compose -f docker-compose.yml -f docker-compose.modulo1-offline.yml up --build db bff
+services:
+  bff:
+    environment:
+      MODULE1_OFFLINE_DEMO: "true"
+      USE_BACKLOG_MOCK: "true"
+      USE_MODULE1_ROLES: "false"
+      USE_MOCKS: "true"

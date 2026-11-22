@@ -1,30 +1,51 @@
-# Capturas de tela do Módulo 6 sem depender do Módulo 1
+# Módulo 6 com backend real e Módulo 1 temporariamente offline
 
-Esta branch é **exclusivamente para demonstração visual**. Não contém login real nem chama o BFF, o banco Neon, o Módulo 1 ou o Gemini.
+A branch `demo/capturas-sem-modulo1` deixa apenas **login e projetos do Módulo 1**
+em modo de desenvolvimento. O frontend React faz solicitações REST e WebSocket
+para o **FastAPI real** do projeto. O banco PostgreSQL local permanece ligado.
 
-## Como abrir
+## Iniciar
 
-1. Baixe ou clone a branch `demo/capturas-sem-modulo1`.
-2. Abra o terminal na pasta `frontend`.
-3. Execute:
-   ```bash
-   npm ci
-   npm run dev:demo
-   ```
-4. Abra **http://localhost:5173**.
-5. Clique em **Entrar no modo demonstração**.
-6. Navegue entre **Dashboard**, **Notificações**, **Chat geral** e **Conversas privadas** e tire os prints.
+Na raiz do projeto, com Docker Desktop aberto:
 
-Opcional: `npm run build:demo` gera a versão estática de demonstração em `frontend/dist`.
+```bash
+git switch demo/capturas-sem-modulo1
+git pull origin demo/capturas-sem-modulo1
+docker compose -f docker-compose.yml -f docker-compose.modulo1-offline.yml up --build db bff
+```
 
-**Atenção:** esses prints mostram o funcionamento **visual** das telas com **dados fictícios**. Não comprovam integração com as APIs reais nem execução dos testes de ponta a ponta. Registre no relatório como **demonstração local com dados simulados**.
+Em outro terminal:
 
-A branch `main` e os serviços reais não são modificados. Os números, projetos, notificações e mensagens são exemplos locais; alterações não são persistidas após recarregar a página. Um aviso "MODO DEMONSTRAÇÃO" aparece em todas as telas.
+```bash
+cd frontend
+npm ci
+npm run dev:demo
+```
 
-## Se você usa o VS Code
+Abra http://localhost:5173 e clique em **Entrar com backend local**.
+O BFF está em http://localhost:8006 e o Swagger em http://localhost:8006/docs.
+Sem iniciar o BFF, o botão de entrada não funciona.
 
-Abra um terminal integrado (Terminal > Novo Terminal), execute os comandos acima e depois abra o endereço indicado pelo Vite. Se o endereço estiver ocupado, use o que o terminal informar.
+## Quais partes são reais?
 
-## Verificações
+- Frontend: React original do projeto.
+- Backend: BFF FastAPI real; os endpoints e WebSockets continuam ativos.
+- Chat, conversas privadas e notificações: backend e banco PostgreSQL reais, com dados locais.
+- Módulo 1: somente login e projetos são substituídos por JWT e projetos de desenvolvimento.
+- Backlog do Módulo 1 e métricas do Módulo 2: dados simulados pela configuração local USE_MOCKS=true.
+- Módulo 4/Módulo 7: recursos podem permanecer indisponíveis sem autenticação e configuração reais.
 
-No GitHub Actions desta branch há um workflow separado que executa os testes do frontend e compila a versão de demonstração, **sem publicar no Azure**.
+**Não é uma homologação de integração com M1, M2, M4 ou M7.**
+É uma demonstração do frontend ligado ao backend local real.
+Todos os prints devem ser descritos como **ambiente local de desenvolvimento**
+quando mostrarem dados substitutos.
+
+Segurança: a flag de fallback é ignorada em produção, os JWT de desenvolvimento
+só são aceitos em development, e o modo de tela local só aparece em localhost.
+A branch `main` e as publicações do Azure não são alteradas.
+
+## Prints
+
+Registre a entrada local, Dashboard, filtros de notificações, chat geral e
+conversas privadas. Um print de http://localhost:8006/docs documenta a API
+que está respondendo. Não inclua tokens, cabeçalhos Authorization ou segredos.

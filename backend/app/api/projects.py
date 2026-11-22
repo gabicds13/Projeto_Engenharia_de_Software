@@ -22,6 +22,19 @@ async def list_projects(
 ):
     """Lista os projetos aos quais o usuário tem acesso no Módulo 1."""
 
+    if settings.module1_offline_enabled and user.user_id in {"dev-po", "dev-pm", "dev-dev"}:
+        return [
+            {
+                "id": project_id,
+                "project_id": project_id,
+                "name": (
+                    "Projeto Módulo 6 (ambiente local)" if project_id == "proj-123"
+                    else "Projeto de testes (ambiente local)"
+                ),
+            }
+            for project_id in user.project_ids
+        ]
+
     if not user.access_token:
         raise UnauthorizedError("Token de acesso ausente.")
 

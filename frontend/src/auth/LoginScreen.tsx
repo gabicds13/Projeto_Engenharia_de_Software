@@ -1,15 +1,28 @@
 import { FormEvent, useState } from "react";
 import { useAuth } from "./AuthContext";
 import { ApiError } from "../lib/apiClient";
-import { DEMO_MODE } from "../lib/demoMode";
+import { MODULE1_OFFLINE } from "../lib/offlineModule1";
 
 export function LoginScreen() {
-  const { loginReal, loginDemo } = useAuth();
+  const { loginReal, loginDev } = useAuth();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const entrarLocal = async () => {
+    setError(null);
+    setLoading(true);
+    try {
+      // O backend real em development emite e valida um JWT assinado.
+      await loginDev("pm");
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "O backend local nao respondeu. Inicie o BFF.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const entrar = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -30,14 +43,22 @@ export function LoginScreen() {
     }
   };
 
-  if (DEMO_MODE) {
+  if (MODULE1_OFFLINE) {
     return (
       <main className="flex min-h-full items-center justify-center bg-bg p-6">
         <div className="w-full max-w-md rounded-xl border border-border bg-surface p-8">
-          <h1 className="text-xl font-semibold text-text">Módulo<span className="text-brand-accent">6</span> · Demonstração</h1>
-          <p className="mt-4 text-sm text-text-muted">Acesso offline para capturas das telas enquanto o Módulo 1 está indisponível.</p>
-          <p className="mt-3 rounded-lg border border-border p-3 text-sm text-text">Ambiente ilustrativo: os projetos, métricas, avisos e conversas são fictícios. Não existe login real neste modo.</p>
-          <button type="button" onClick={loginDemo} className="mt-5 w-full rounded-lg bg-primary px-4 py-3 font-medium text-white hover:bg-primary-hover">Entrar no modo demonstração</button>
+          <h1 className="text-xl font-semibold text-text">Módulo<span className="text-brand-accent">6</span> · Portal</h1>
+          <p className="mt-2 text-sm text-text-muted">Ambiente local conectado ao backend real do Módulo 6.</p>
+          <p className="mt-4 rounded-md border border-border p-3 text-sm text-text">
+            Login e projetos do Módulo 1 substituídos por dados de desenvolvimento.
+            Dashboard, notificações e chat acessam o nosso backend. Recursos que dependem
+            de tokens reais de outros módulos podem continuar indisponíveis.
+          </p>
+          <button type="button" onClick={() => void entrarLocal()} disabled={loading}
+            className="mt-5 w-full rounded-lg bg-primary px-4 py-3 font-medium text-white hover:bg-primary-hover disabled:opacity-60">
+            {loading ? "Conectando ao backend..." : "Entrar com backend local"}
+          </button>
+          {error && <p role="alert" className="mt-3 text-sm text-text">{error}</p>}
         </div>
       </main>
     );

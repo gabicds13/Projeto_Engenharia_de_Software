@@ -5,11 +5,11 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "dev:demo": "vite --mode demo",
-    "build:demo": "tsc -b && vite build --mode demo",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
-    "test": "vitest run"
+    "test": "vitest run",
+    "dev:demo": "vite --mode demo",
+    "build:demo": "tsc -b && vite build --mode demo"
   },
   "dependencies": {
     "react": "^18.3.1",
