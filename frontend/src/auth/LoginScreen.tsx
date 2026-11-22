@@ -1,9 +1,10 @@
 import { FormEvent, useState } from "react";
 import { useAuth } from "./AuthContext";
 import { ApiError } from "../lib/apiClient";
+import { DEMO_MODE } from "../lib/demoMode";
 
 export function LoginScreen() {
-  const { loginReal } = useAuth();
+  const { loginReal, loginDemo } = useAuth();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -28,6 +29,19 @@ export function LoginScreen() {
       setLoading(false);
     }
   };
+
+  if (DEMO_MODE) {
+    return (
+      <main className="flex min-h-full items-center justify-center bg-bg p-6">
+        <div className="w-full max-w-md rounded-xl border border-border bg-surface p-8">
+          <h1 className="text-xl font-semibold text-text">Módulo<span className="text-brand-accent">6</span> · Demonstração</h1>
+          <p className="mt-4 text-sm text-text-muted">Acesso offline para capturas das telas enquanto o Módulo 1 está indisponível.</p>
+          <p className="mt-3 rounded-lg border border-border p-3 text-sm text-text">Ambiente ilustrativo: os projetos, métricas, avisos e conversas são fictícios. Não existe login real neste modo.</p>
+          <button type="button" onClick={loginDemo} className="mt-5 w-full rounded-lg bg-primary px-4 py-3 font-medium text-white hover:bg-primary-hover">Entrar no modo demonstração</button>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className="flex min-h-full items-center justify-center bg-bg p-6">

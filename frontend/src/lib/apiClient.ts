@@ -1,6 +1,8 @@
 // Cliente REST do BFF. Injeta o JWT em Authorization e trata 401 de forma central.
 
 import { apiUrl } from "./config";
+import { DEMO_MODE } from "./demoMode";
+import { demoRequest } from "./demoApi";
 
 const TOKEN_KEY = "ms-dashboard.token";
 
@@ -30,6 +32,12 @@ export class ApiError extends Error {
 }
 
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
+  // Neste ambiente, TODAS as chamadas passam pela API fictícia local.
+  // Nenhuma credencial ou requisição é enviada para um servidor.
+  if (DEMO_MODE) {
+    const body = typeof init.body === "string" ? JSON.parse(init.body) as unknown : undefined;
+    return demoRequest<T>(path, init.method ?? "GET", body);
+  }
   const token = getToken();
   const headers = new Headers(init.headers);
   headers.set("Content-Type", "application/json");

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { DEMO_MODE } from "../lib/demoMode";
 
 type Status = "connecting" | "open" | "closed";
 
@@ -29,7 +30,7 @@ export function useWebSocket(url: string | null, opts: Options): Status {
   reconnectRef.current = onReconnect;
 
   useEffect(() => {
-    if (!url || !enabled) return;
+    if (DEMO_MODE || !url || !enabled) return;
 
     let ws: WebSocket | null = null;
     let timer: ReturnType<typeof setTimeout> | null = null;

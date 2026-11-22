@@ -14,6 +14,7 @@ import {
 import { Toasts } from "./features/notifications/Toasts";
 import { ThemeProvider } from "./theme/ThemeProvider";
 import { api } from "./lib/apiClient";
+import { DEMO_MODE } from "./lib/demoMode";
 
 interface Project {
   id?: string;
@@ -97,6 +98,11 @@ function ShellContent() {
   return (
     <div className="min-h-full bg-bg text-text">
 
+      {DEMO_MODE && (
+        <div role="status" className="border-b border-border bg-surface px-4 py-2 text-center text-sm font-semibold text-text">
+          MODO DEMONSTRAÇÃO — dados simulados, sem login ou integração com serviços reais.
+        </div>
+      )}
       <Navbar
        unreadBadge={unreadTotal}
        chatUnreadBadge={chatUnreadTotal}
