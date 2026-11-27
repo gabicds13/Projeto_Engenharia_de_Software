@@ -7,6 +7,11 @@ const downloadMock = vi.fn();
 vi.mock("../../lib/apiClient", () => ({
   api: { get: (...args: unknown[]) => getMock(...args) },
   downloadBffFile: (...args: unknown[]) => downloadMock(...args),
+  ApiError: class ApiError extends Error {
+    constructor(public status: number, public code: string, message: string) {
+      super(message);
+    }
+  },
 }));
 
 describe("Módulo 3 — artefatos", () => {
@@ -50,8 +55,16 @@ describe("Módulo 3 — artefatos", () => {
   it("não oculta o restante do portal quando Módulo 3 falha", async () => {
     getMock.mockRejectedValue(new Error("Upstream 503"));
     render(<ArtifactsPage />);
-    expect(await screen.findByRole("alert")).toHaveTextContent("Não foi possível consultar os projetos do Módulo 3");
+    expect(await screen.findByRole("alert")).toHaveTextContent("Não foi possível interpretar os projetos retornados");
     expect(screen.getByRole("button", { name: "Tentar novamente" })).toBeInTheDocument();
+  });
+
+  it("mostra a causa segura devolvida pelo BFF quando o Módulo 1 não responde", async () => {
+    const { ApiError } = await import("../../lib/apiClient");
+    getMock.mockRejectedValue(new ApiError(503, "service_unavailable", "Não foi possível consultar os projetos do usuário."));
+    render(<ArtifactsPage />);
+    expect(await screen.findByRole("alert")).toHaveTextContent("HTTP 503");
+    expect(screen.getByRole("alert")).toHaveTextContent("Não foi possível consultar os projetos do usuário.");
   });
 
   it("avisa quando não existem projetos com IDs compatíveis", async () => {

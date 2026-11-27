@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
-import { api, downloadBffFile } from "../../lib/apiClient";
+import { api, ApiError, downloadBffFile } from "../../lib/apiClient";
 import {
   module3AnalysisId, module3Id, module3Items,
   type Module3Analysis, type Module3Artifact, type Module3Project, type Module3Version,
@@ -46,10 +46,14 @@ export function ArtifactsPage() {
       setProjects(list);
       const first = list.map(module3Id).find(Boolean) ?? "";
       setProjectId((current) => list.some(p => module3Id(p) === current) ? current : first);
-    } catch {
+    } catch (err) {
       setProjects([]);
       setProjectId("");
-      setProjectError("Não foi possível consultar os projetos do Módulo 3. Confira a conexão e tente novamente.");
+      setProjectError(
+        err instanceof ApiError
+          ? `Falha na consulta de projetos (HTTP ${err.status}): ${err.message}`
+          : "Não foi possível interpretar os projetos retornados. Confira o terminal do backend e tente novamente.",
+      );
     } finally {
       setLoadingProjects(false);
     }
