@@ -1,10 +1,26 @@
 import { NavLink } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import { useTheme } from "../theme/ThemeProvider";
-import { ExternalModulesMenu } from "./ExternalModulesMenu";
+import { EXTERNAL_MODULES } from "./ExternalModulesMenu";
 
 const linkBase =
-  "shrink-0 whitespace-nowrap px-2.5 py-2 rounded-md text-sm font-medium transition-colors";
+  "shrink-0 whitespace-nowrap rounded-md px-2 py-1.5 text-xs font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-white";
+
+const inactiveLink = "text-white/90 hover:bg-primary-hover hover:text-white";
+
+function ModuleLink({ number, label, icon }: { number: number; label: string; icon: string }) {
+  const module = EXTERNAL_MODULES.find(item => item.number === number);
+  if (!module) return null;
+  return (
+    <a href={module.url} target="_blank" rel="noopener noreferrer"
+      className={`${linkBase} ${inactiveLink}`}
+      title={`Abrir ${label} em nova aba`}>
+      <span className="inline-flex items-center gap-1.5">
+        <span aria-hidden="true">{icon}</span>{label}
+      </span>
+    </a>
+  );
+}
 
 export function Navbar({
   unreadBadge,
@@ -18,42 +34,48 @@ export function Navbar({
 
   return (
     <header className="bg-primary">
-      <nav className="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-3 sm:px-6 lg:flex-row lg:flex-nowrap lg:items-center lg:justify-between lg:gap-4">
-        <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center sm:gap-4 lg:shrink-0">
-          {/* Vermelho Mackenzie SOMENTE no logo */}
-          <span className="shrink-0 whitespace-nowrap text-lg font-semibold text-white">
-            Módulo<span className="text-brand-accent">6</span>
-          </span>
-          <div className="flex flex-wrap gap-1 lg:flex-nowrap">
-            <TabLink to="/dashboard" label="Dashboard" />
-            <TabLink to="/artefatos" label="Artefatos" />
-            <TabLink to="/notificacoes" label="Notificações" badge={unreadBadge} />
-            <TabLink to="/chat" label="Chat" badge={chatUnreadBadge} />
-          </div>
+      <nav aria-label="Navegação principal" className="flex w-full flex-col gap-2 px-3 py-2 lg:flex-row lg:flex-nowrap lg:items-center lg:gap-3">
+        <NavLink to="/dashboard" className="shrink-0 whitespace-nowrap text-xs font-semibold text-white lg:border-r lg:border-white/20 lg:pr-3"
+          title="Engenharia de Software — Módulo 6">
+          Engenharia de Software<span className="text-brand-accent">.</span>
+        </NavLink>
+
+        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1 lg:flex-nowrap lg:overflow-x-auto" aria-label="Módulos e páginas">
+          <ModuleLink number={1} label="Projetos" icon="▣" />
+          <ModuleLink number={2} label="GitHub Sync" icon="⛓" />
+          <TabLink to="/artefatos" label="Artefatos" icon="▤" />
+          <ModuleLink number={4} label="Code Review" icon="⚙" />
+          <ModuleLink number={5} label="Curadoria" icon="★" />
+          <TabLink to="/notificacoes" label="Notificações" icon="✉" badge={unreadBadge} />
+          <ModuleLink number={7} label="MackAI" icon="✦" />
+          <span className="hidden h-4 w-px shrink-0 bg-white/20 lg:block" aria-hidden="true" />
+          <TabLink to="/dashboard" label="Dashboard" icon="▥" />
+          <TabLink to="/chat" label="Chat" icon="◫" badge={chatUnreadBadge} />
         </div>
 
-        <div className="flex min-w-0 flex-wrap items-center gap-2 lg:flex-nowrap lg:justify-end">
+        <div className="flex min-w-0 flex-wrap items-center gap-2 lg:shrink-0 lg:flex-nowrap lg:justify-end">
           <button
             type="button"
             onClick={toggle}
-            className="shrink-0 whitespace-nowrap rounded-md px-2.5 py-2 text-sm font-medium text-white/90 hover:bg-primary-hover"
+            className="shrink-0 whitespace-nowrap rounded-md px-2 py-1.5 text-xs font-medium text-white hover:bg-primary-hover"
             aria-label="Alternar tema claro/escuro"
+            title={theme === "light" ? "Ativar modo escuro" : "Ativar modo claro"}
           >
-            {theme === "light" ? "🌙 Escuro" : "☀️ Claro"}
+            <span aria-hidden="true">{theme === "light" ? "☾" : "☀"}</span>
+            <span className="ml-1 lg:hidden 2xl:inline">{theme === "light" ? "Escuro" : "Claro"}</span>
           </button>
           {user && (
             <>
               <span
-                className="min-w-0 max-w-full break-all text-sm text-white/80 lg:max-w-36 lg:truncate lg:break-normal xl:max-w-48"
+                className="min-w-0 max-w-full break-all text-xs text-white/80 lg:max-w-16 lg:truncate lg:break-normal 2xl:max-w-36"
                 title={user.role ? `${user.user_id} · ${user.role}` : user.user_id}
               >
                 {user.user_id}{user.role ? ` · ${user.role}` : ""}
               </span>
-              <ExternalModulesMenu />
               <button
                 type="button"
                 onClick={logout}
-                className="shrink-0 whitespace-nowrap rounded-md bg-primary-hover px-3 py-2 text-sm font-medium text-white hover:opacity-90"
+                className="shrink-0 whitespace-nowrap rounded-md bg-primary-hover px-2 py-1.5 text-xs font-medium text-white hover:opacity-90"
               >
                 Sair
               </button>
@@ -68,25 +90,26 @@ export function Navbar({
 function TabLink({
   to,
   label,
+  icon,
   badge,
 }: {
   to: string;
   label: string;
+  icon: string;
   badge?: number;
 }) {
   return (
     <NavLink
       to={to}
       className={({ isActive }) =>
-        `${linkBase} ${
-          isActive ? "bg-primary-hover text-white" : "text-white/80 hover:bg-primary-hover"
-        }`
+        `${linkBase} ${isActive ? "bg-primary-hover text-white" : inactiveLink}`
       }
     >
-      <span className="inline-flex items-center gap-2">
+      <span className="inline-flex items-center gap-1.5">
+        <span aria-hidden="true">{icon}</span>
         {label}
         {badge && badge > 0 ? (
-          <span className="metric inline-flex min-w-5 items-center justify-center rounded-full bg-priority-critical px-1.5 text-xs font-semibold text-white">
+          <span className="metric inline-flex min-w-5 items-center justify-center rounded-full bg-priority-critical px-1 text-xs font-semibold text-white">
             {badge}
           </span>
         ) : null}

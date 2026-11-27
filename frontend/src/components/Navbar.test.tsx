@@ -34,12 +34,35 @@ describe("Etapa 4 — navegação do portal", () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getByRole("link", { name: /Dashboard/ })).toHaveAttribute("href", "/dashboard");
+    expect(screen.getByRole("link", { name: "Dashboard" })).toHaveAttribute("href", "/dashboard");
     expect(screen.getByRole("link", { name: /Artefatos/ })).toHaveAttribute("href", "/artefatos");
     expect(screen.getByRole("link", { name: /Notificações/ })).toHaveAttribute("href", "/notificacoes");
     expect(screen.getByRole("link", { name: /Chat/ })).toHaveAttribute("href", "/chat");
     expect(screen.getByRole("link", { name: /Notificações/ })).toHaveTextContent("3");
     expect(screen.getByRole("link", { name: /Chat/ })).toHaveTextContent("2");
+  });
+
+  it("apresenta os atalhos comuns aos módulos na ordem do cabeçalho", () => {
+    render(<MemoryRouter initialEntries={["/notificacoes"]}><Navbar /></MemoryRouter>);
+    expect(screen.getByText("Engenharia de Software")).toBeInTheDocument();
+    const links = screen.getAllByRole("link").slice(1);
+    expect(links.map(link => link.getAttribute("href"))).toEqual([
+      "https://green-river-02e44e810.2.azurestaticapps.net/",
+      "https://ai-platform-github-service-eduardo-frapb8fbbcd0bfdm.brazilsouth-01.azurewebsites.net/",
+      "/artefatos",
+      "https://revisor-codigo-ia-gio-ach9dbg3g9ekazf3.chilecentral-01.azurewebsites.net/",
+      "https://frontmodulo5-ecaqg8fghzhyeuh2.brazilsouth-01.azurewebsites.net/",
+      "/notificacoes",
+      "https://mackai-conversas.calmfield-d7c6c49f.brazilsouth.azurecontainerapps.io/",
+      "/dashboard",
+      "/chat",
+    ]);
+    for (const link of links.filter(link => link.getAttribute("href")?.startsWith("https:"))) {
+      expect(link).toHaveAttribute("target", "_blank");
+      expect(link).toHaveAttribute("rel", "noopener noreferrer");
+    }
+    expect(screen.getByRole("link", { name: "Notificações" })).toHaveAttribute("aria-current", "page");
+    expect(screen.getByRole("link", { name: "Artefatos" })).not.toHaveAttribute("aria-current");
   });
 
   it("mantém ações de tema e logout disponíveis", () => {
@@ -64,7 +87,7 @@ describe("Etapa 4 — navegação do portal", () => {
     expect(nav).toHaveClass("flex-col");
     expect(nav).toHaveClass("lg:flex-row");
     const links = screen.getByRole("link", { name: /Dashboard/ }).parentElement;
-    expect(links).toHaveClass("flex-wrap", "lg:flex-nowrap");
+    expect(links).toHaveClass("flex-wrap", "lg:flex-nowrap", "lg:overflow-x-auto");
     expect(nav).toHaveClass("lg:flex-nowrap");
   });
 
@@ -83,6 +106,6 @@ describe("Etapa 4 — navegação do portal", () => {
     expect(identity).toHaveClass("min-w-0", "lg:truncate");
     expect(screen.getByRole("button", { name: "Sair" })).toHaveClass("shrink-0");
     expect(screen.getByRole("link", { name: /Chat/ })).toHaveClass("shrink-0", "whitespace-nowrap");
-    expect(screen.getByText("Outros módulos").closest("details")).toHaveClass("shrink-0");
+    expect(screen.getByRole("link", { name: "Code Review" })).toHaveClass("shrink-0");
   });
 });
