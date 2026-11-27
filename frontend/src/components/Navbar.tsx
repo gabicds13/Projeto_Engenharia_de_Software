@@ -1,5 +1,4 @@
-import { useEffect, useId, useRef, useState } from "react";
-import { NavLink, useLocation } from "react-router-dom";
+import { Link, NavLink } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import { useTheme } from "../theme/ThemeProvider";
 import { EXTERNAL_MODULES } from "./ExternalModulesMenu";
@@ -36,10 +35,10 @@ export function Navbar({
   return (
     <header className="bg-primary">
       <nav aria-label="Navegação principal" className="flex w-full flex-col gap-2 px-3 py-2 lg:flex-row lg:flex-nowrap lg:items-center lg:gap-3">
-        <NavLink to="/dashboard" className="shrink-0 whitespace-nowrap text-xs font-semibold text-white lg:border-r lg:border-white/20 lg:pr-3"
+        <Link to="/dashboard" className="shrink-0 whitespace-nowrap text-xs font-semibold text-white lg:border-r lg:border-white/20 lg:pr-3"
           title="Engenharia de Software — Módulo 6">
           Engenharia de Software<span className="text-brand-accent">.</span>
-        </NavLink>
+        </Link>
 
         <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1 xl:flex-nowrap" aria-label="Módulos da plataforma">
           <ModuleLink number={1} label="Projetos" icon="▣" />
@@ -47,7 +46,11 @@ export function Navbar({
           <ModuleLink number={3} label="Artefatos" icon="▤" />
           <ModuleLink number={4} label="Code Review" icon="⚙" />
           <ModuleLink number={5} label="Curadoria" icon="★" />
-          <Module6Menu unreadBadge={unreadBadge} chatUnreadBadge={chatUnreadBadge} />
+          <Link to="/notificacoes" aria-current="location"
+            className={`${linkBase} inline-flex items-center gap-1.5 bg-primary-hover text-white`}>
+            <span aria-hidden="true">✉</span>Notificações
+            <CountBadge value={unreadBadge} />
+          </Link>
           <ModuleLink number={7} label="MackAI" icon="✦" />
         </div>
 
@@ -81,65 +84,16 @@ export function Navbar({
           )}
         </div>
       </nav>
-    </header>
-  );
-}
-
-function Module6Menu({ unreadBadge, chatUnreadBadge }: { unreadBadge?: number; chatUnreadBadge?: number }) {
-  const [open, setOpen] = useState(false);
-  const menuId = useId();
-  const menuRef = useRef<HTMLDivElement>(null);
-  const triggerRef = useRef<HTMLButtonElement>(null);
-  const { pathname } = useLocation();
-
-  useEffect(() => { setOpen(false); }, [pathname]);
-
-  useEffect(() => {
-    if (!open) return;
-    const outside = (event: PointerEvent) => {
-      if (event.target instanceof Node && !menuRef.current?.contains(event.target)) {
-        setOpen(false);
-      }
-    };
-    const escape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        setOpen(false);
-        triggerRef.current?.focus();
-      }
-    };
-    document.addEventListener("pointerdown", outside);
-    document.addEventListener("keydown", escape);
-    return () => {
-      document.removeEventListener("pointerdown", outside);
-      document.removeEventListener("keydown", escape);
-    };
-  }, [open]);
-
-  const close = () => setOpen(false);
-
-  return (
-    <div ref={menuRef} className="relative shrink-0">
-      <button ref={triggerRef} type="button" aria-expanded={open} aria-controls={menuId}
-        onClick={() => setOpen(value => !value)}
-        className={`${linkBase} inline-flex items-center gap-1.5 bg-primary-hover text-white`}>
-        <span aria-hidden="true">✉</span>
-        Notificações
-        <CountBadge value={unreadBadge} />
-        <span aria-hidden="true" className={open ? "rotate-180" : ""}>▾</span>
-      </button>
-      <div id={menuId} hidden={!open}
-        className="z-50 mt-1 w-56 max-w-[calc(100vw-2rem)] rounded-lg border border-border bg-surface p-1.5 text-text shadow-lg lg:absolute lg:left-0 lg:top-full">
-        {open && (
-          <div aria-label="Páginas do Módulo 6" className="flex flex-col gap-1">
-            <p className="px-3 py-1 text-xs font-semibold text-text-muted">Módulo 6</p>
-            <TabLink to="/dashboard" label="Dashboard" icon="▥" onClick={close} />
-            <TabLink to="/artefatos" label="Artefatos do projeto" icon="▤" onClick={close} />
-            <TabLink to="/notificacoes" label="Notificações" icon="✉" badge={unreadBadge} onClick={close} />
-            <TabLink to="/chat" label="Chat" icon="◫" badge={chatUnreadBadge} onClick={close} />
-          </div>
-        )}
+      <div className="border-b border-border bg-surface">
+        <nav aria-label="Páginas do Módulo 6" className="mx-auto flex max-w-6xl flex-wrap items-center gap-2 px-4 py-3 sm:px-6">
+          <span className="mr-2 shrink-0 text-sm font-semibold text-text-muted">Módulo 6</span>
+          <TabLink to="/dashboard" label="Dashboard" icon="▥" />
+          <TabLink to="/artefatos" label="Artefatos do projeto" icon="▤" />
+          <TabLink to="/notificacoes" label="Notificações" icon="✉" badge={unreadBadge} />
+          <TabLink to="/chat" label="Chat" icon="◫" badge={chatUnreadBadge} />
+        </nav>
       </div>
-    </div>
+    </header>
   );
 }
 
@@ -156,20 +110,17 @@ function TabLink({
   label,
   icon,
   badge,
-  onClick,
 }: {
   to: string;
   label: string;
   icon: string;
   badge?: number;
-  onClick: () => void;
 }) {
   return (
     <NavLink
       to={to}
-      onClick={onClick}
       className={({ isActive }) =>
-        `${linkBase} block px-3 py-2 ${isActive ? "bg-primary text-white" : "text-text hover:bg-bg"}`
+        `shrink-0 whitespace-nowrap rounded-md px-3 py-2 text-sm font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-text ${isActive ? "bg-primary text-white" : "text-text hover:bg-bg"}`
       }
     >
       <span className="inline-flex items-center gap-1.5">
