@@ -31,7 +31,8 @@ class Settings(BaseSettings):
     use_mocks: bool = True
     use_backlog_mock: bool = False
     # Integração real do Módulo 2, independente dos mocks dos demais módulos.
-    use_githubsync_real: bool = False
+    use_githubsync_real: bool = True
+    githubsync_timeout_seconds: float = 20.0
     # Métricas por projeto do MackAI (Módulo 7), somente com Bearer real do M1.
     mackai_metrics_enabled: bool = False
     mackai_url: str = "https://mackai-conversas.calmfield-d7c6c49f.brazilsouth.azurecontainerapps.io"
@@ -49,9 +50,9 @@ class Settings(BaseSettings):
     module3_enabled: bool = True
     module3_url: str = "https://modulo3-fhgjdpa6d5bbfvff.canadacentral-01.azurewebsites.net"
     module3_timeout_seconds: float = 8.0
-    # Relação explícita M1=M3; vazio por padrão. Ex.: "id-do-m1=3".
-    # Deve ser configurada após verificar que ambos representam o mesmo projeto.
-    module3_project_map: str = ""
+    # None usa o vínculo de teste somente em development. String vazia desativa.
+    # Produção exige configuração explícita e vínculo confirmado.
+    module3_project_map: str | None = None
 
     # Autenticação (JWT emitido pelo Módulo 1)
     jwt_secret: str = "dev-secret-change-me"
@@ -100,7 +101,7 @@ class Settings(BaseSettings):
     notifications_url: str = "http://ms-notifications:8000"
     chat_url: str = "http://ms-chat:8000"
     backlog_url: str = "http://module-1:8000"  # Módulo 1 — Auth/Backlog
-    github_url: str = "http://module-2:8000"  # Módulo 2 — GitHub
+    github_url: str = "https://ai-platform-github-service-eduardo-frapb8fbbcd0bfdm.brazilsouth-01.azurewebsites.net"  # Módulo 2 — GitHub
 
     # Resiliência
     upstream_timeout_seconds: float = 3.0
@@ -118,6 +119,15 @@ class Settings(BaseSettings):
     @property
     def is_dev(self) -> bool:
         return self.app_env == "development"
+
+    @property
+    def effective_module3_project_map(self) -> str:
+        if self.module3_project_map is not None:
+            return self.module3_project_map
+        if self.is_dev:
+            # Vínculo informado para homologação local nesta branch.
+            return "f092329c-0747-4b88-92f0-c3036786ce91=3"
+        return ""
 
     @property
     def dev_login_enabled(self) -> bool:

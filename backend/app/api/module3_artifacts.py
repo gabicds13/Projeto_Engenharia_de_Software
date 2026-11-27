@@ -60,7 +60,7 @@ def _project_links(settings: Settings) -> dict[str, str]:
     """
     links: dict[str, str] = {}
     claimed_m3_ids: set[str] = set()
-    for item in settings.module3_project_map.split(","):
+    for item in settings.effective_module3_project_map.split(","):
         item = item.strip()
         if not item:
             continue

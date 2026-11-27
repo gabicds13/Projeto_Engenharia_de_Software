@@ -143,3 +143,59 @@ async def test_cache_dashboard_isolado_por_usuario():
     b_card = next(card for card in b.cards if card.key == "commits_week")
     assert a_card.value == 10 and b_card.value == 20
     assert not a_card.stale and not b_card.stale
+
+
+@pytest.mark.asyncio
+async def test_mock_cache_never_appears_as_real():
+    class Unavailable(MockGithubClient):
+        async def commits_this_week(self, project_id):
+            raise UpstreamError("M2 indisponível")
+
+    registry = _registry()
+    mock = MetricsAggregator(
+        MockBacklogClient(), MockGithubClient(), registry,
+        mock_keys=frozenset({"commits_week"}), cache_scope="user:test",
+    )
+    real = MetricsAggregator(
+        MockBacklogClient(), Unavailable(), registry, cache_scope="user:test",
+    )
+    assert (await mock.build("proj-123")).cards[0].value == 47
+    card = (await real.build("proj-123")).cards[0]
+    assert card.data_origin == "real"
+    assert card.state == "unavailable"
+    assert card.value is None
+
+
+def test_real_session_uses_m2_even_with_other_mocks(client, monkeypatch):
+    from app.core.config import Settings, get_settings
+    from app.core.security import CurrentUser, get_current_user
+    from app.dashboard import router
+
+    calls = _m2_mock(monkeypatch)
+    assert Settings(_env_file=None).github_url.startswith("https://ai-platform-github-service-")
+    monkeypatch.setattr(router, "ensure_project_access", _allow_project)
+    monkeypatch.setattr(router, "HttpBacklogClient", lambda *a, **kw: MockBacklogClient())
+    monkeypatch.setattr(router, "get_registry", _registry)
+    settings = Settings(use_mocks=True, use_githubsync_real=False)
+    client.app.dependency_overrides[get_settings] = lambda: settings
+    client.app.dependency_overrides[get_current_user] = lambda: CurrentUser(
+        user_id="test-real", role=None, project_ids=("proj-123",), access_token="test-token"
+    )
+    try:
+        response = client.get("/api/bff/dashboard", params={"project_id": "proj-123"})
+        assert response.status_code == 200
+        payload = response.json()
+        cards = {c["key"]: c for c in payload["cards"]}
+        assert cards["commits_week"]["value"] == 8
+        assert cards["open_prs"]["value"] == 3
+        assert cards["commits_week"]["data_origin"] == "real"
+        assert cards["open_prs"]["data_origin"] == "real"
+        assert payload["weekly"]["data_origin"] == "real"
+        assert payload["weekly"]["state"] == "ok"
+        assert all(h["Authorization"] == "Bearer test-token" for _, _, h in calls)
+    finally:
+        client.app.dependency_overrides.clear()
+
+
+async def _allow_project(*args):
+    pass

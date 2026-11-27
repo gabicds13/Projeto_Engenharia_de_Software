@@ -35,8 +35,8 @@ describe("Módulo 3 — artefatos", () => {
   it("consulta apenas uma análise existente informada pela versão", async () => {
     getMock.mockImplementation((path: string) => {
       if (path === "/api/bff/module3/projects") return Promise.resolve([{ id: "p-123" }]);
-      if (path.endsWith("/artifacts")) return Promise.resolve([{ id: "a-1", name: "Projeto.pdf" }]);
-      if (path.endsWith("/versions")) return Promise.resolve({ versions: [{ id: "v-1", analysis_id: "an-2" }] });
+      if (path.endsWith("/artifacts")) return Promise.resolve([{ id: "a-1", project_id: "p-123", name: "Projeto.pdf" }]);
+      if (path.endsWith("/versions")) return Promise.resolve({ versions: [{ id: "v-1", artifact_id: "a-1", project_id: "p-123", analysis_id: "an-2" }] });
       if (path.endsWith("/analyses/an-2")) return Promise.resolve({
         status: "COMPLETED", classification: "architecture_document",
         summary: "Arquitetura em microsserviços", confidence: 0.9,

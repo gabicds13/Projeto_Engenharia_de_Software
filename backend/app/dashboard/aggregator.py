@@ -22,17 +22,22 @@ class MetricsAggregator:
         registry: ResilienceRegistry,
         mock_keys: frozenset[str] = frozenset(),
         cache_scope: str = "",
+        github_timeout_seconds: float | None = None,
     ):
         self._backlog = backlog
         self._github = github
         self._reg = registry
         self._mock_keys = mock_keys
         self._cache_scope = cache_scope
+        self._github_timeout_seconds = github_timeout_seconds
 
     async def _card(self, key: str, project_id: str, factory) -> DashboardCard:
         origin = "mock" if key in self._mock_keys else "real"
         try:
-            result = await self._reg.guarded_call(f"{self._cache_scope}:{key}:{project_id}", factory)
+            timeout = self._github_timeout_seconds if key in {"commits_week", "open_prs", "weekly"} else None
+            result = await self._reg.guarded_call(
+                f"{self._cache_scope}:{key}:{project_id}:{origin}", factory, timeout=timeout
+            )
         except UpstreamUnavailable:
             return DashboardCard(key=key, state="unavailable", stale=False, data_origin=origin, value=None)
         value = result.value

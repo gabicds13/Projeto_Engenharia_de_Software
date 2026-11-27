@@ -8,6 +8,7 @@ import pytest
 # Garante configuração determinística antes de importar a app.
 os.environ.setdefault("APP_ENV", "development")
 os.environ.setdefault("USE_MOCKS", "true")
+os.environ.setdefault("USE_GITHUBSYNC_REAL", "false")
 os.environ.setdefault("JWT_SECRET", "test-secret")
 os.environ.setdefault("USE_NOTIFICATIONS_DB", "false")
 os.environ.setdefault("USE_CHAT_DB", "false")

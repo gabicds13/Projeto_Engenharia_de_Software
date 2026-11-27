@@ -53,7 +53,7 @@ export function module3Items<T>(payload: unknown, ...keys: string[]): T[] {
 }
 
 export function module3Id(record: { id?: string | number; project_id?: string | number; artifact_id?: string | number; version_id?: string | number }): string {
-  return String(record.project_id ?? record.artifact_id ?? record.version_id ?? record.id ?? "");
+  return String(record.id ?? record.version_id ?? record.artifact_id ?? record.project_id ?? "");
 }
 
 export function module3AnalysisId(version: Module3Version): string {

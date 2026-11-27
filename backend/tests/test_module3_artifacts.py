@@ -125,7 +125,8 @@ def test_explicit_mapping_uses_m1_identity_and_m3_artifact_source(client, monkey
             raise AssertionError("Unexpected path " + path)
     MappedModule3.calls = []
     monkeypatch.setattr(api, "Module3Client", MappedModule3)
-    client.app.dependency_overrides[get_settings] = lambda: Settings(module3_project_map=f"{m1_id}=3")
+    monkeypatch.delenv("MODULE3_PROJECT_MAP", raising=False)
+    client.app.dependency_overrides[get_settings] = lambda: Settings(app_env="development", _env_file=None)
     try:
         r = client.get("/api/bff/module3/projects", headers=_headers(projects=(m1_id,)))
         assert r.status_code == 200
@@ -155,3 +156,14 @@ def test_duplicate_or_invalid_mapping_is_not_accepted(client, monkeypatch):
             assert client.get("/api/bff/module3/projects", headers=_headers()).status_code == 503
         finally:
             client.app.dependency_overrides.clear()
+
+
+def test_default_mapping_only_for_development(monkeypatch):
+    monkeypatch.delenv("MODULE3_PROJECT_MAP", raising=False)
+    m1_id = "f092329c-0747-4b88-92f0-c3036786ce91"
+    local = Settings(app_env="development", _env_file=None)
+    assert api._module3_project_id(m1_id, local) == "3"
+    production = Settings(app_env="production", _env_file=None)
+    assert api._module3_project_id(m1_id, production) == m1_id
+    disabled = Settings(app_env="development", module3_project_map="", _env_file=None)
+    assert api._module3_project_id(m1_id, disabled) == m1_id

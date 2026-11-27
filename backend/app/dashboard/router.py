@@ -44,8 +44,9 @@ async def get_dashboard(
         )
 
     # O Módulo 2 exige Bearer RS256 do Módulo 1 e isola métricas por usuário.
-    # A flag permite testar M2 real mantendo mocks nos outros módulos.
-    if settings.use_githubsync_real or not settings.use_mocks:
+    # Sessões reais nunca recebem métricas simuladas, mesmo com USE_MOCKS.
+    # A flag permite habilitar/desabilitar M2 real também no login de demonstração.
+    if user.role is None or settings.use_githubsync_real or not settings.use_mocks:
         github_client = HttpGithubClient(
             settings.github_url,
             headers={"Authorization": f"Bearer {user.access_token}"},
@@ -64,6 +65,7 @@ async def get_dashboard(
         registry=get_registry(),
         mock_keys=frozenset(mock_keys),
         cache_scope=f"user:{user.user_id}",
+        github_timeout_seconds=settings.githubsync_timeout_seconds if isinstance(github_client, HttpGithubClient) else None,
     )
 
     async def load_mackai() -> MackaiMetricsResult:

@@ -73,10 +73,12 @@ export function ArtifactsPage() {
       const response = await api.get<unknown>(url + (params.size ? "?" + params : ""));
       if (selectionRef.current !== selected) return;
       setArtifacts(module3Items<Module3Artifact>(response, "items", "artifacts", "results"));
-    } catch {
+    } catch (err) {
       if (selectionRef.current !== selected) return;
       setArtifacts([]);
-      setArtifactError("Os artefatos não estão disponíveis agora. As outras áreas do portal continuam funcionando.");
+      setArtifactError(err instanceof ApiError
+        ? `Falha na consulta de artefatos (HTTP ${err.status}): ${err.message}`
+        : "Os artefatos não estão disponíveis agora. As outras áreas do portal continuam funcionando.");
     } finally {
       if (selectionRef.current === selected) setLoadingArtifacts(false);
     }

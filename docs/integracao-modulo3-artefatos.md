@@ -35,7 +35,7 @@ Configuração no BFF:
 MODULE3_ENABLED=true
 MODULE3_URL=https://modulo3-fhgjdpa6d5bbfvff.canadacentral-01.azurewebsites.net
 MODULE3_TIMEOUT_SECONDS=8
-# Opcional: apenas após confirmar que ambos são o mesmo projeto lógico.
+# Vínculo de homologação local; confirmar antes de produção.
 # Formato: ID_PROJETO_M1=ID_PROJETO_M3
 MODULE3_PROJECT_MAP=f092329c-0747-4b88-92f0-c3036786ce91=3
 ```
@@ -45,6 +45,8 @@ MODULE3_PROJECT_MAP=f092329c-0747-4b88-92f0-c3036786ce91=3
 O Módulo 1 usa UUIDs, enquanto o Módulo 3 pode usar IDs numéricos.
 A configuração `MODULE3_PROJECT_MAP` permite que o backend faça a correspondência
 de forma explícita, sem alterar os IDs externos nem desativar autorização.
+
+Em development, na ausência da variável, esta branch usa o vínculo abaixo; uma variável explicitamente vazia o desativa. Fora de development não existe vínculo padrão.
 
 O exemplo acima foi fornecido na verificação de 27/11/2026 e serve apenas
 para demonstrar o vínculo pretendido entre o projeto M1 e o projeto
@@ -63,9 +65,7 @@ $env:MODULE3_PROJECT_MAP="f092329c-0747-4b88-92f0-c3036786ce91=3"
 ```
 
 Se a associação estiver correta mas não houver documentos, compare os nomes,
-IDs e resposta do endpoint `/api/bff/module3/projects`. As métricas do Dashboard
-marcadas com `data_origin: mock` continuam simuladas e não são alteradas
-por esta integração.
+IDs e resposta do endpoint `/api/bff/module3/projects`. Para sessões reais, o Dashboard usa a API publicada do M2 mesmo com USE_MOCKS=true. Se o M2 falhar ou não houver repositório autorizado, as métricas ficam indisponíveis, sem números simulados.
 
 ## Condições antes do merge
 

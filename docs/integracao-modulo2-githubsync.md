@@ -10,7 +10,7 @@ O BFF consulta estas rotas com o Bearer real do usuário emitido pelo Módulo 1:
 - GET /api/v1/commits?repository_id=ID&since=ISO&page=N: eventos reais para série semanal.
 - GET /api/v1/pull-requests?repository_id=ID&page=N: PRs para série semanal.
 
-## Configuração opcional, sem alterar outros módulos
+## Configuração, sem alterar outros módulos
 Em App Service (ambiente de testes autorizado), definir:
 
 ```dotenv
@@ -19,7 +19,7 @@ USE_GITHUBSYNC_REAL=true
 GITHUB_URL=https://ai-platform-github-service-eduardo-frapb8fbbcd0bfdm.brazilsouth-01.azurewebsites.net
 ```
 
-A flag USE_GITHUBSYNC_REAL independe do modo mock de Notificações, Chat e Backlog. Não habilitar em produção sem validar a conta, os projetos e os contratos. Não colocar tokens, PATs, senhas, URLs de banco ou chaves em arquivos versionados. Chamadas BFF→M2 não dependem de CORS.
+Nesta branch a API publicada e USE_GITHUBSYNC_REAL=true são os padrões. Sessões reais do M1 consultam M2 mesmo com USE_MOCKS=true; para sessão de demonstração, USE_GITHUBSYNC_REAL=false permite mock. A flag independe do modo mock de Notificações, Chat e Backlog. O prazo total de cada consulta M2 é configurável em GITHUBSYNC_TIMEOUT_SECONDS (20 por padrão). Não habilitar em produção sem validar a conta, os projetos e os contratos. Não colocar tokens, PATs, senhas, URLs de banco ou chaves em arquivos versionados. Chamadas BFF→M2 não dependem de CORS.
 
 ## O que aparece
 - Commits na semana: soma de total_commits de cada repositório do projeto (últimos 7 dias, janela móvel).
