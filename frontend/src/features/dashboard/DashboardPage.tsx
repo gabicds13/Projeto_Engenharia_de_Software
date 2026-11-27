@@ -9,6 +9,7 @@ import type {
 } from "../../lib/types";
 import { MetricCard, MetricNumber } from "./MetricCard";
 import { CodeReviewPanel } from "./CodeReviewPanel";
+import { CodeReviewMetricsPanel } from "./CodeReviewMetricsPanel";
 import { WeeklyChart } from "./WeeklyChart";
 
 interface Project {
@@ -287,6 +288,7 @@ export function DashboardPage() {
         )}
       </div>
 
+      <CodeReviewMetricsPanel key={`m4-metrics-${projectId}`} projectId={projectId} />
       <CodeReviewPanel key={projectId} projectId={projectId} />
 
       <MackaiPanel result={data.mackai} />

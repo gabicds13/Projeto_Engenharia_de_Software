@@ -2,7 +2,7 @@ import { useEffect, useRef } from "react";
 
 // Apenas endereços de interfaces de usuário divulgados ou documentados
 // pelos respectivos grupos. Não incluir Swagger/APIs como se fossem portais.
-const EXTERNAL_MODULES = [
+export const EXTERNAL_MODULES = [
   {
     number: 1,
     name: "Projetos e autenticação",

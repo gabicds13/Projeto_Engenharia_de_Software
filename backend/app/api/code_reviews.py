@@ -1,6 +1,8 @@
 """API BFF do Módulo 4: histórico de PRs acessíveis, sem credenciais no frontend."""
 from __future__ import annotations
 
+from uuid import UUID
+
 from fastapi import APIRouter, Depends, Query
 
 from app.clients.code_review_client import (
@@ -8,6 +10,7 @@ from app.clients.code_review_client import (
     HttpCodeReviewClient,
     project_repository_names,
 )
+from app.clients.code_review_metrics_client import fetch_code_review_metrics
 from app.clients.projects_client import ensure_project_access
 from app.core.config import Settings, get_settings
 from app.core.errors import ForbiddenError, ServiceUnavailableError
@@ -64,4 +67,63 @@ async def list_code_reviews(
         "history_limited": True,
         "pending_reviews": None,
         "items": items,
+    }
+
+
+@router.get("/metrics")
+async def code_review_metrics(
+    project_id: UUID = Query(...),
+    dias: int = Query(14, ge=1, le=90),
+    user: CurrentUser = Depends(get_current_user),
+    settings: Settings = Depends(get_settings),
+):
+    """Consulta contagens do projeto M1 autorizado, sem credenciais no M4."""
+    project = str(project_id)
+    await ensure_project_access(project, user, settings)
+    if not settings.code_review_enabled:
+        raise ServiceUnavailableError("Integração com o Módulo 4 não está ativada.")
+    try:
+        metrics = await fetch_code_review_metrics(
+            base_url=settings.code_review_url,
+            project_id=project,
+            days=dias,
+            timeout=settings.code_review_timeout_seconds,
+        )
+    except CodeReviewUnavailable as exc:
+        raise ServiceUnavailableError("Métricas do Módulo 4 indisponíveis no momento.") from exc
+    return {
+        "project_id": project,
+        "scope": "project",
+        "dias": dias,
+        "source": "module-4",
+        "data_origin": "real",
+        "metrics": metrics,
+    }
+
+
+@router.get("/metrics/global")
+async def global_code_review_metrics(
+    dias: int = Query(14, ge=1, le=90),
+    user: CurrentUser = Depends(get_current_user),
+    settings: Settings = Depends(get_settings),
+):
+    """Contagens globais públicas divulgadas pelo M4, sem dados individuais de PR."""
+    if not settings.code_review_enabled:
+        raise ServiceUnavailableError("Integração com o Módulo 4 não está ativada.")
+    try:
+        metrics = await fetch_code_review_metrics(
+            base_url=settings.code_review_url,
+            project_id=None,
+            days=dias,
+            timeout=settings.code_review_timeout_seconds,
+        )
+    except CodeReviewUnavailable as exc:
+        raise ServiceUnavailableError("Métricas globais do Módulo 4 indisponíveis no momento.") from exc
+    return {
+        "project_id": None,
+        "scope": "global",
+        "dias": dias,
+        "source": "module-4",
+        "data_origin": "real",
+        "metrics": metrics,
     }
