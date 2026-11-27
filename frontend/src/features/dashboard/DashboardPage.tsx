@@ -26,7 +26,7 @@ interface ProjectResponse {
 const CARD_LABELS: Record<string, string> = {
   commits_week: "Commits na semana",
   open_prs: "PRs abertos",
-  reviews_pending: "Reviews pendentes",
+  reviews_completed: "Revisões realizadas (M4)",
   stories_by_status: "User Stories",
 };
 
@@ -262,8 +262,8 @@ export function DashboardPage() {
         />
 
         <SimpleMetric
-          card={byKey.get("reviews_pending")}
-          label={CARD_LABELS.reviews_pending}
+          card={byKey.get("reviews_completed")}
+          label={CARD_LABELS.reviews_completed}
         />
 
         <StoriesMetric card={byKey.get("stories_by_status")} />

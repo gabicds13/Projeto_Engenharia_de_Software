@@ -25,7 +25,7 @@ Nesta branch a API publicada e USE_GITHUBSYNC_REAL=true são os padrões. Sessõ
 - Commits na semana: soma de total_commits de cada repositório do projeto (últimos 7 dias, janela móvel).
 - PRs abertos: soma de prs_open atuais de cada repositório.
 - Gráfico: cinco semanas ISO; soma de commits agrupados por authored_at e PRs agrupadas por opened_at.
-- User Stories permanecem no Módulo 1; reviews pendentes ainda não têm fonte real confirmada.
+- User Stories permanecem no Módulo 1; o card de revisões realizadas usa o total real por projeto do Módulo 4.
 
 O M2 restringe repositórios visíveis segundo o usuário autenticado, podendo mostrar apenas os vinculados ao proprietário. Um projeto sem repositórios acessíveis aparece como indisponível, não como zero. Para não mostrar métricas parciais, o cliente aceita no máximo 10 repositórios e 10 páginas por repositório; exceder o limite deixa o gráfico indisponível.
 

@@ -91,3 +91,8 @@ de projeto; retorna apenas os campos numéricos agregados previstos no contrato.
 O painel rotula a visão global separadamente. Nenhuma consulta de histórico ou outras
 métricas muda de escopo. Em 27/11/2026 a API global retornou 6 revisões e 30 achados
 no período de 14 dias; são valores dinâmicos, não fixtures incorporadas ao produto.
+
+
+## Card de revisões realizadas
+
+O card `reviews_completed` de `GET /api/bff/dashboard` substitui o antigo card sem fonte de reviews pendentes. Usa `total_revisoes` da API pública do M4 com UUID do projeto autorizado, sem credenciais ou mocks. Mostra o total informado pelo M4 (não promete uma janela de 14 dias, pois o serviço pode contar o histórico disponível); os gráficos possuem filtros e escopo independentes. Em falha, permanece indisponível ou sinaliza o último valor em cache como desatualizado. A indisponibilidade não altera os outros cards.

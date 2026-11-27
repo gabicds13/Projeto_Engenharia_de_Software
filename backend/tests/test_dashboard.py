@@ -13,29 +13,35 @@ def _registry() -> ResilienceRegistry:
     )
 
 
+async def _completed(project_id: str) -> int:
+    assert project_id == "proj-123"
+    return 2
+
+
 class _BrokenGithub(MockGithubClient):
     async def commits_this_week(self, project_id: str) -> int:
         raise RuntimeError("github fora do ar")
 
 
 async def test_build_all_cards_ok():
-    agg = MetricsAggregator(MockBacklogClient(), MockGithubClient(), _registry())
+    agg = MetricsAggregator(MockBacklogClient(), MockGithubClient(), _registry(), reviews_completed=_completed)
     resp = await agg.build("proj-123")
     keys = {c.key for c in resp.cards}
-    assert keys == {"commits_week", "open_prs", "reviews_pending", "stories_by_status"}
+    assert keys == {"commits_week", "open_prs", "reviews_completed", "stories_by_status"}
     assert all(c.state == "ok" for c in resp.cards)
     assert resp.weekly.state == "ok"
     commits = next(c for c in resp.cards if c.key == "commits_week")
     assert commits.value == 47
+    assert next(c for c in resp.cards if c.key == "reviews_completed").value == 2
 
 
 async def test_one_failing_card_is_unavailable_others_ok():
-    agg = MetricsAggregator(MockBacklogClient(), _BrokenGithub(), _registry())
+    agg = MetricsAggregator(MockBacklogClient(), _BrokenGithub(), _registry(), reviews_completed=_completed)
     resp = await agg.build("proj-123")
     by_key = {c.key: c for c in resp.cards}
     # Só o card do commits (github) deve ficar indisponível
     assert by_key["commits_week"].state == "unavailable"
-    assert by_key["reviews_pending"].state == "ok"
+    assert by_key["reviews_completed"].state == "ok"
     assert by_key["stories_by_status"].state == "ok"
 
 
@@ -83,29 +89,27 @@ class _BrokenBacklog(MockBacklogClient):
     async def stories_by_status(self, project_id: str):
         raise ConnectionError("modulo 1 indisponivel")
 
-    async def reviews_pending(self, project_id: str) -> int:
-        raise ConnectionError("modulo 1 indisponivel")
 
 
 async def test_queda_total_modulo2_nao_afeta_metricas_modulo1():
     resp = await MetricsAggregator(
-        MockBacklogClient(), _FullyBrokenGithub(), _registry()
+        MockBacklogClient(), _FullyBrokenGithub(), _registry(), reviews_completed=_completed
     ).build("proj-123")
     cards = {c.key: c for c in resp.cards}
     assert cards["commits_week"].state == "unavailable"
     assert cards["open_prs"].state == "unavailable"
     assert resp.weekly.state == "unavailable"
     assert cards["stories_by_status"].state == "ok"
-    assert cards["reviews_pending"].state == "ok"
+    assert cards["reviews_completed"].state == "ok"
 
 
 async def test_queda_total_backlog_modulo1_nao_afeta_github():
     resp = await MetricsAggregator(
-        _BrokenBacklog(), MockGithubClient(), _registry()
+        _BrokenBacklog(), MockGithubClient(), _registry(), reviews_completed=_completed
     ).build("proj-123")
     cards = {c.key: c for c in resp.cards}
     assert cards["stories_by_status"].state == "unavailable"
-    assert cards["reviews_pending"].state == "unavailable"
+    assert cards["reviews_completed"].state == "ok"
     assert cards["commits_week"].state == "ok"
     assert cards["open_prs"].state == "ok"
     assert resp.weekly.state == "ok"
@@ -134,7 +138,7 @@ async def test_origem_simulada_identifica_apenas_metricas_mockadas():
     assert cards["open_prs"].data_origin == "mock"
     assert response.weekly.data_origin == "mock"
     assert cards["stories_by_status"].data_origin == "real"
-    assert cards["reviews_pending"].data_origin == "real"
+    assert cards["reviews_completed"].data_origin == "real"
 
 
 async def test_metrica_simulada_indisponivel_nao_recebe_valor_falso():
@@ -149,3 +153,26 @@ async def test_metrica_simulada_indisponivel_nao_recebe_valor_falso():
     assert cards["commits_week"].state == "unavailable"
     assert cards["commits_week"].data_origin == "mock"
     assert cards["commits_week"].value is None
+
+
+async def test_reviews_completed_unavailable_without_source_never_mocked():
+    response = await MetricsAggregator(
+        MockBacklogClient(), MockGithubClient(), _registry(),
+        mock_keys=frozenset({"reviews_completed"}),
+    ).build("proj-123")
+    card = next(c for c in response.cards if c.key == "reviews_completed")
+    assert card.state == "unavailable"
+    assert card.value is None
+    assert card.data_origin == "real"
+
+
+async def test_reviews_completed_failure_does_not_affect_other_cards():
+    async def offline(project_id: str) -> int:
+        raise ConnectionError("M4 offline")
+    response = await MetricsAggregator(
+        MockBacklogClient(), MockGithubClient(), _registry(), reviews_completed=offline,
+    ).build("proj-123")
+    cards = {c.key: c for c in response.cards}
+    assert cards["reviews_completed"].state == "unavailable"
+    assert cards["reviews_completed"].value is None
+    assert all(c.state == "ok" for c in response.cards if c.key != "reviews_completed")

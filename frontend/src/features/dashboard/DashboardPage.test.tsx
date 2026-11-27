@@ -22,7 +22,7 @@ const result = {
   cards: [
     { key: "commits_week", state: "ok", stale: false, value: 10 },
     { key: "open_prs", state: "ok", stale: false, value: 2 },
-    { key: "reviews_pending", state: "unavailable", stale: false, value: null },
+    { key: "reviews_completed", state: "unavailable", stale: false, value: null },
     { key: "stories_by_status", state: "ok", stale: false,
       value: { todo: 1, in_progress: 2, in_review: 0, done: 4 } },
   ],
@@ -79,6 +79,22 @@ describe("Dashboard resiliente", () => {
     expect(screen.getByRole("button", { name: "Tentar novamente" })).toBeInTheDocument();
     await waitFor(() => expect(getMock).toHaveBeenCalledWith("/api/bff/dashboard?project_id=proj-1"));
   });
+  it("mostra o total real de revisões realizadas no card", async () => {
+    getMock.mockImplementation((path: string) => {
+      if (path === "/api/bff/projects") return Promise.resolve([{ id: "proj-1" }]);
+      if (path.startsWith("/api/bff/dashboard")) return Promise.resolve({
+        ...result,
+        cards: result.cards.map(card => card.key === "reviews_completed"
+          ? { ...card, state: "ok", value: 23, data_origin: "real" } : card),
+      });
+      return Promise.reject(new Error("Sem dados adicionais"));
+    });
+    render(<DashboardPage />);
+    expect(await screen.findByText("Revisões realizadas (M4)")).toBeInTheDocument();
+    expect(screen.getByText("23")).toBeInTheDocument();
+    expect(screen.queryByText("Reviews pendentes")).not.toBeInTheDocument();
+  });
+
   it("mostra métricas do Módulo 7 quando a API responde", async () => {
     getMock.mockImplementation((path: string) => {
       if (path === "/api/bff/projects") return Promise.resolve([{ id: "proj-1" }]);

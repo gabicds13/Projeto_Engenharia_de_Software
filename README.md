@@ -217,7 +217,8 @@ contratos abaixo (propostos; a validar com os grupos). Os schemas estão em
 - **ms-notifications**: `GET /api/v1/notifications` (paginado, filtros), `/unread-count`,
   `PATCH /{id}`, `POST /read-all`, WS `/ws/notifications`.
 - **ms-chat**: `GET/POST /api/v1/rooms/{project_id}/messages`, WS `/ws/chat`.
-- **Módulo 1 (backlog)**: resumo de User Stories e reviews pendentes por projeto.
+- **Módulo 1 (backlog)**: resumo de User Stories por projeto.
+- **Módulo 4 (Code Review)**: total de revisões realizadas do projeto, conforme a API pública de métricas.
 - **Módulo 2 (github)**: commits/PRs por semana e PRs abertos por projeto.
 
 Para trocar os mocks pelos serviços reais: defina `USE_MOCKS=false` e as URLs correspondentes.
