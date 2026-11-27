@@ -160,7 +160,7 @@ def test_m4_rota_rejeita_outro_projeto_sem_consultar_m4(client, monkeypatch):
     assert response.status_code == 403
 
 
-def test_m4_rota_desligada_por_padrao(client, monkeypatch):
+def test_m4_rota_desligada_explicitamente(client, monkeypatch):
     settings = get_settings()
     monkeypatch.setattr(settings, "code_review_enabled", False)
     response = client.get(
@@ -215,3 +215,33 @@ def test_m4_rota_indisponivel_sem_retorno_de_outro_servico(client, monkeypatch):
     )
     assert response.status_code == 503
     assert "servico falhou" not in response.text
+
+
+def test_m4_e_m7_habilitados_por_padrao_na_branch(monkeypatch):
+    from app.core.config import Settings
+
+    for name in ("CODE_REVIEW_ENABLED", "MACKAI_METRICS_ENABLED", "CODE_REVIEW_PASSWORD"):
+        monkeypatch.delenv(name, raising=False)
+    settings = Settings(_env_file=None)
+    assert settings.code_review_enabled is True
+    assert settings.mackai_metrics_enabled is True
+    assert settings.code_review_password is None
+    disabled = Settings(_env_file=None, code_review_enabled=False, mackai_metrics_enabled=False)
+    assert disabled.code_review_enabled is False
+    assert disabled.mackai_metrics_enabled is False
+
+
+def test_m4_habilitado_sem_credencial_nao_consulta_upstream(client, monkeypatch):
+    settings = get_settings()
+    monkeypatch.setattr(settings, "code_review_enabled", True)
+    monkeypatch.setattr(settings, "code_review_password", None)
+
+    async def unexpected(**_):
+        raise AssertionError("Não deve consultar M2/M4 sem credencial configurada")
+
+    monkeypatch.setattr(m4_router, "project_repository_names", unexpected)
+    result = client.get(
+        "/api/bff/code-reviews", params={"project_id": "proj-123"},
+        headers={"Authorization": f"Bearer {_token()}"},
+    )
+    assert result.status_code == 503

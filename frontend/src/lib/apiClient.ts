@@ -60,6 +60,23 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   return (await res.json()) as T;
 }
 
+/** Arquivos precisam de Authorization; um link comum não envia o JWT. */
+export async function downloadBffFile(path: string): Promise<Blob> {
+  const token = getToken();
+  const headers = new Headers();
+  if (token) headers.set("Authorization", `Bearer ${token}`);
+  const response = await fetch(apiUrl(path), { headers });
+  if (response.status === 401) {
+    setToken(null);
+    onUnauthorized?.();
+    throw new ApiError(401, "unauthorized", "Sessão expirada.");
+  }
+  if (!response.ok) {
+    throw new ApiError(response.status, "download_failed", "Não foi possível baixar o artefato.");
+  }
+  return response.blob();
+}
+
 export const api = {
   get: <T>(path: string) => request<T>(path),
   post: <T>(path: string, body?: unknown) =>

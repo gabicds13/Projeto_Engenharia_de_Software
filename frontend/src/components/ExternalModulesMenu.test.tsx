@@ -8,9 +8,11 @@ describe("Menu de outros módulos", () => {
     fireEvent.click(screen.getByText("Outros módulos"));
 
     const links = screen.getAllByRole("link");
-    expect(links).toHaveLength(5);
+    expect(links).toHaveLength(6);
     expect(screen.getByText("Módulo 1")).toBeInTheDocument();
     expect(screen.getByText("Módulo 2")).toBeInTheDocument();
+    expect(screen.getByText("Módulo 3")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Módulo 3/ })).toHaveAttribute("href", "https://modulo3-fhgjdpa6d5bbfvff.canadacentral-01.azurewebsites.net/app/");
     expect(screen.getByText("Módulo 4")).toBeInTheDocument();
     expect(screen.getByText("Módulo 5")).toBeInTheDocument();
     expect(screen.getByText("Módulo 7")).toBeInTheDocument();

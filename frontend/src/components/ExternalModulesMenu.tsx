@@ -14,6 +14,11 @@ const EXTERNAL_MODULES = [
     url: "https://ai-platform-github-service-eduardo-frapb8fbbcd0bfdm.brazilsouth-01.azurewebsites.net/",
   },
   {
+    number: 3,
+    name: "Ingestão e organização de artefatos",
+    url: "https://modulo3-fhgjdpa6d5bbfvff.canadacentral-01.azurewebsites.net/app/",
+  },
+  {
     number: 4,
     name: "Revisão de código com IA",
     // O M4 publica frontend neste endereço se SERVIR_FRONTEND=1 no App Service.
@@ -61,9 +66,9 @@ export function ExternalModulesMenu() {
   }, []);
 
   return (
-    <details ref={detailsRef} className="group relative">
+    <details ref={detailsRef} className="group relative shrink-0">
       <summary
-        className="flex cursor-pointer list-none items-center gap-2 rounded-md border border-white/30 px-3 py-2 text-sm font-medium text-white hover:bg-primary-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white [&::-webkit-details-marker]:hidden"
+        className="flex cursor-pointer list-none items-center gap-2 whitespace-nowrap rounded-md border border-white/30 px-3 py-2 text-sm font-medium text-white hover:bg-primary-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white [&::-webkit-details-marker]:hidden"
       >
         Outros módulos
         <span aria-hidden="true" className="text-xs transition-transform group-open:rotate-180">▾</span>

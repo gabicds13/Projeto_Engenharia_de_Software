@@ -49,6 +49,10 @@ def create_app() -> FastAPI:
 
     app.include_router(code_reviews_router)
 
+    from app.api.module3_artifacts import router as module3_router
+
+    app.include_router(module3_router)
+
     from app.api.integrations import router as integrations_router
 
     app.include_router(integrations_router)
