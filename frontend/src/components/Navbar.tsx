@@ -1,4 +1,4 @@
-import { NavLink } from "react-router-dom";
+import { Link, NavLink } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import { useTheme } from "../theme/ThemeProvider";
 import { EXTERNAL_MODULES } from "./ExternalModulesMenu";
@@ -12,9 +12,9 @@ function ModuleLink({ number, label, icon }: { number: number; label: string; ic
   const module = EXTERNAL_MODULES.find(item => item.number === number);
   if (!module) return null;
   return (
-    <a href={module.url} target="_blank" rel="noopener noreferrer"
+    <a href={module.url}
       className={`${linkBase} ${inactiveLink}`}
-      title={`Abrir ${label} em nova aba`}>
+      title={`Abrir ${label}`}>
       <span className="inline-flex items-center gap-1.5">
         <span aria-hidden="true">{icon}</span>{label}
       </span>
@@ -35,22 +35,23 @@ export function Navbar({
   return (
     <header className="bg-primary">
       <nav aria-label="Navegação principal" className="flex w-full flex-col gap-2 px-3 py-2 lg:flex-row lg:flex-nowrap lg:items-center lg:gap-3">
-        <NavLink to="/dashboard" className="shrink-0 whitespace-nowrap text-xs font-semibold text-white lg:border-r lg:border-white/20 lg:pr-3"
+        <Link to="/dashboard" className="shrink-0 whitespace-nowrap text-xs font-semibold text-white lg:border-r lg:border-white/20 lg:pr-3"
           title="Engenharia de Software — Módulo 6">
           Engenharia de Software<span className="text-brand-accent">.</span>
-        </NavLink>
+        </Link>
 
-        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1 lg:flex-nowrap lg:overflow-x-auto" aria-label="Módulos e páginas">
+        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1 xl:flex-nowrap" aria-label="Módulos da plataforma">
           <ModuleLink number={1} label="Projetos" icon="▣" />
-          <ModuleLink number={2} label="GitHub Sync" icon="⛓" />
-          <TabLink to="/artefatos" label="Artefatos" icon="▤" />
+          <ModuleLink number={2} label="GitHub Sync" icon="☍" />
+          <ModuleLink number={3} label="Artefatos" icon="▤" />
           <ModuleLink number={4} label="Code Review" icon="⚙" />
           <ModuleLink number={5} label="Curadoria" icon="★" />
-          <TabLink to="/notificacoes" label="Notificações" icon="✉" badge={unreadBadge} />
+          <Link to="/notificacoes" aria-current="location"
+            className={`${linkBase} inline-flex items-center gap-1.5 bg-primary-hover text-white`}>
+            <span aria-hidden="true">✉</span>Notificações
+            <CountBadge value={unreadBadge} />
+          </Link>
           <ModuleLink number={7} label="MackAI" icon="✦" />
-          <span className="hidden h-4 w-px shrink-0 bg-white/20 lg:block" aria-hidden="true" />
-          <TabLink to="/dashboard" label="Dashboard" icon="▥" />
-          <TabLink to="/chat" label="Chat" icon="◫" badge={chatUnreadBadge} />
         </div>
 
         <div className="flex min-w-0 flex-wrap items-center gap-2 lg:shrink-0 lg:flex-nowrap lg:justify-end">
@@ -83,8 +84,25 @@ export function Navbar({
           )}
         </div>
       </nav>
+      <div className="border-b border-border bg-surface">
+        <nav aria-label="Páginas do Módulo 6" className="mx-auto flex max-w-6xl flex-wrap items-center gap-2 px-4 py-3 sm:px-6">
+          <span className="mr-2 shrink-0 text-sm font-semibold text-text-muted">Módulo 6</span>
+          <TabLink to="/dashboard" label="Dashboard" icon="▥" />
+          <TabLink to="/artefatos" label="Artefatos do projeto" icon="▤" />
+          <TabLink to="/notificacoes" label="Notificações" icon="✉" badge={unreadBadge} />
+          <TabLink to="/chat" label="Chat" icon="◫" badge={chatUnreadBadge} />
+        </nav>
+      </div>
     </header>
   );
+}
+
+function CountBadge({ value }: { value?: number }) {
+  return value && value > 0 ? (
+    <span className="metric inline-flex min-w-5 items-center justify-center rounded-full bg-priority-critical px-1 text-xs font-semibold text-white">
+      {value}
+    </span>
+  ) : null;
 }
 
 function TabLink({
@@ -102,17 +120,13 @@ function TabLink({
     <NavLink
       to={to}
       className={({ isActive }) =>
-        `${linkBase} ${isActive ? "bg-primary-hover text-white" : inactiveLink}`
+        `shrink-0 whitespace-nowrap rounded-md px-3 py-2 text-sm font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-text ${isActive ? "bg-primary text-white" : "text-text hover:bg-bg"}`
       }
     >
       <span className="inline-flex items-center gap-1.5">
         <span aria-hidden="true">{icon}</span>
         {label}
-        {badge && badge > 0 ? (
-          <span className="metric inline-flex min-w-5 items-center justify-center rounded-full bg-priority-critical px-1 text-xs font-semibold text-white">
-            {badge}
-          </span>
-        ) : null}
+        <CountBadge value={badge} />
       </span>
     </NavLink>
   );
