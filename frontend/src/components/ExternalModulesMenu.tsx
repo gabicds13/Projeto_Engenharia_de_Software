@@ -14,6 +14,11 @@ const EXTERNAL_MODULES = [
     url: "https://ai-platform-github-service-eduardo-frapb8fbbcd0bfdm.brazilsouth-01.azurewebsites.net/",
   },
   {
+    number: 3,
+    name: "Ingestão e organização de artefatos",
+    url: "https://modulo3-fhgjdpa6d5bbfvff.canadacentral-01.azurewebsites.net/app/",
+  },
+  {
     number: 4,
     name: "Revisão de código com IA",
     // O M4 publica frontend neste endereço se SERVIR_FRONTEND=1 no App Service.

@@ -6,6 +6,7 @@ import { LoginScreen } from "./auth/LoginScreen";
 import { Navbar } from "./components/Navbar";
 import { ChatPage } from "./features/chat/ChatPage";
 import { DashboardPage } from "./features/dashboard/DashboardPage";
+import { ArtifactsPage } from "./features/artifacts/ArtifactsPage";
 import { NotificationsPage } from "./features/notifications/NotificationsPage";
 import {
   NotificationsProvider,
@@ -104,6 +105,7 @@ function ShellContent() {
       <main className="mx-auto max-w-6xl p-6">
         <Routes>
           <Route path="/dashboard" element={<DashboardPage />} />
+          <Route path="/artefatos" element={<ArtifactsPage />} />
           <Route path="/notificacoes" element={<NotificationsPage />} />
           <Route path="/chat" element={<ChatPage />} />
           <Route path="*" element={<Navigate to="/dashboard" replace />} />

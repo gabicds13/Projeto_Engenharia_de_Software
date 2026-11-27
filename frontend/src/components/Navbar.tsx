@@ -26,6 +26,7 @@ const linkBase =
           </span>
           <div className="flex flex-wrap gap-1">
             <TabLink to="/dashboard" label="Dashboard" />
+            <TabLink to="/artefatos" label="Artefatos" />
             <TabLink to="/notificacoes" label="Notificações" badge={unreadBadge} />
             <TabLink
              to="/chat"

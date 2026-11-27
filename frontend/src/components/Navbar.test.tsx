@@ -30,6 +30,7 @@ describe("Etapa 4 — navegação do portal", () => {
     );
 
     expect(screen.getByRole("link", { name: /Dashboard/ })).toHaveAttribute("href", "/dashboard");
+    expect(screen.getByRole("link", { name: /Artefatos/ })).toHaveAttribute("href", "/artefatos");
     expect(screen.getByRole("link", { name: /Notificações/ })).toHaveAttribute("href", "/notificacoes");
     expect(screen.getByRole("link", { name: /Chat/ })).toHaveAttribute("href", "/chat");
     expect(screen.getByRole("link", { name: /Notificações/ })).toHaveTextContent("3");
