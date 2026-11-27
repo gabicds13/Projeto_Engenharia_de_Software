@@ -12,9 +12,9 @@ function ModuleLink({ number, label, icon }: { number: number; label: string; ic
   const module = EXTERNAL_MODULES.find(item => item.number === number);
   if (!module) return null;
   return (
-    <a href={module.url} target="_blank" rel="noopener noreferrer"
+    <a href={module.url}
       className={`${linkBase} ${inactiveLink}`}
-      title={`Abrir ${label} em nova aba`}>
+      title={`Abrir ${label}`}>
       <span className="inline-flex items-center gap-1.5">
         <span aria-hidden="true">{icon}</span>{label}
       </span>
@@ -42,14 +42,15 @@ export function Navbar({
 
         <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1 lg:flex-nowrap lg:overflow-x-auto" aria-label="Módulos e páginas">
           <ModuleLink number={1} label="Projetos" icon="▣" />
-          <ModuleLink number={2} label="GitHub Sync" icon="⛓" />
-          <TabLink to="/artefatos" label="Artefatos" icon="▤" />
+          <ModuleLink number={2} label="GitHub Sync" icon="☍" />
+          <ModuleLink number={3} label="Artefatos" icon="▤" />
           <ModuleLink number={4} label="Code Review" icon="⚙" />
           <ModuleLink number={5} label="Curadoria" icon="★" />
           <TabLink to="/notificacoes" label="Notificações" icon="✉" badge={unreadBadge} />
           <ModuleLink number={7} label="MackAI" icon="✦" />
           <span className="hidden h-4 w-px shrink-0 bg-white/20 lg:block" aria-hidden="true" />
           <TabLink to="/dashboard" label="Dashboard" icon="▥" />
+          <TabLink to="/artefatos" label="Artefatos do projeto" icon="▤" />
           <TabLink to="/chat" label="Chat" icon="◫" badge={chatUnreadBadge} />
         </div>
 
