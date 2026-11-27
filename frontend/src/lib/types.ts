@@ -135,3 +135,21 @@ export interface ChatHistoryResult {
 }
 
 export type Role = "PO" | "PM" | "DEV";
+
+
+export interface CodeReviewMetrics {
+  total_revisoes: number;
+  total_achados: number;
+  por_prioridade: Partial<Record<Priority, number>>;
+  por_categoria: Record<string, number>;
+  por_arquitetura: Record<string, number>;
+  revisoes_por_dia: { data: string; revisoes: number; achados: number }[];
+}
+
+export interface CodeReviewMetricsResponse {
+  project_id: string;
+  dias: number;
+  source: "module-4";
+  data_origin: "real";
+  metrics: CodeReviewMetrics;
+}

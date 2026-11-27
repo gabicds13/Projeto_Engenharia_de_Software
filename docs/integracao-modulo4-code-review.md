@@ -58,3 +58,24 @@ O cliente exige HTTPS e não segue redirecionamentos.
 `backend/tests/test_module4_code_review.py`: auth do BFF, acesso negado ao projeto, vínculo M2,
 filtro seguro, Basic Auth, ausência de conteúdo privado e resposta 503.
 Os testes usam apenas respostas simuladas; não confirmam acesso à API de produção.
+
+
+## Métricas agregadas para o dashboard (novembro de 2026)
+
+O grupo M4 disponibilizou `GET /api/dashboard/metricas?project_id=UUID&dias=14`, sem
+senha ou chave. O BFF expõe `GET /api/bff/code-reviews/metrics?project_id=UUID&dias=14`,
+exige JWT, valida acesso ao projeto no M1 e sempre encaminha o UUID e período (1–90 dias).
+Não encaminha credenciais ao M4, não consulta métricas globais e não substitui falhas por mock.
+Usa as configurações existentes `CODE_REVIEW_ENABLED`, `CODE_REVIEW_URL` e
+`CODE_REVIEW_TIMEOUT_SECONDS`. O histórico de PRs continua usando Basic Auth e a validação
+de repositórios no M2, independentemente das novas métricas.
+
+O painel nativo do M6 mostra revisões realizadas, total de achados, críticos e altos,
+distribuição por prioridade, categoria, arquitetura e evolução diária. O período inicial
+é 14 dias; alterar a seleção de projeto ou período refaz a consulta. As métricas não
+representam reviews pendentes.
+
+O contrato fornecido pelo grupo informa `total_revisoes`, `total_achados`,
+`por_prioridade`, `por_categoria`, `por_arquitetura` e `revisoes_por_dia`.
+A implementação valida as distribuições como mapas de contagens e a evolução como uma
+lista de datas e contagens. A verificação da resposta real do Azure segue pendente.
