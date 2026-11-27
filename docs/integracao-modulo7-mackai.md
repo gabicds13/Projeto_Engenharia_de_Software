@@ -17,7 +17,7 @@ Contrato oficial publicado pelo grupo do Módulo 7: https://github.com/gabrielma
 - O portal apresenta 6 números reais quando disponíveis e um link para abrir o MackAI em outra aba, onde o usuário deverá autenticar-se no domínio do M7.
 - A interface não exibe valores simulados de IA como se fossem reais.
 
-## Ativação opcional no Azure
+## Configuração local ou no Azure
 **Backend utilizado pelo frontend atual:** `software6-bff-2` (conforme workflow de build frontend).
 
 ```dotenv
@@ -26,7 +26,7 @@ MACKAI_URL=https://mackai-conversas.calmfield-d7c6c49f.brazilsouth.azurecontaine
 MACKAI_TIMEOUT_SECONDS=5
 ```
 
-A integração fica desligada por padrão, inclusive em testes locais. A flag não altera `USE_MOCKS`, `USE_GITHUBSYNC_REAL` ou o modo do Chat/Notificações. Somente habilite em ambiente autorizado após confirmar a URL e o acesso ao projeto. O token não deve ser armazenado em variáveis de ambiente compartilhadas: o BFF repassa o token do login de cada usuário.
+Nesta branch, a integração fica habilitada por padrão; uma variável `MACKAI_METRICS_ENABLED=false` explícita a desativa. Os testes automatizados desativam chamadas externas por padrão e usam transporte simulado nos testes de contrato. As configurações do Azure não são copiadas ao trocar de branch. A flag não altera `USE_MOCKS`, `USE_GITHUBSYNC_REAL` ou o modo do Chat/Notificações. Somente habilite em ambiente autorizado após confirmar a URL e o acesso ao projeto. O token não deve ser armazenado em variáveis de ambiente compartilhadas: o BFF repassa o token do login de cada usuário.
 
 ## Homologação do sistema real (pendente)
 1. Fazer login no Módulo 6 com a conta real do Módulo 1.

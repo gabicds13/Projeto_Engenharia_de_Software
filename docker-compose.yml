@@ -31,6 +31,12 @@ services:
       USE_GITHUBSYNC_REAL: "${USE_GITHUBSYNC_REAL:-true}"
       GITHUB_URL: "${GITHUB_URL:-https://ai-platform-github-service-eduardo-frapb8fbbcd0bfdm.brazilsouth-01.azurewebsites.net}"
       MODULE3_PROJECT_MAP: "${MODULE3_PROJECT_MAP-f092329c-0747-4b88-92f0-c3036786ce91=3}"
+      CODE_REVIEW_ENABLED: "${CODE_REVIEW_ENABLED:-true}"
+      CODE_REVIEW_URL: "${CODE_REVIEW_URL:-https://revisor-codigo-ia-gio-ach9dbg3g9ekazf3.chilecentral-01.azurewebsites.net}"
+      CODE_REVIEW_USERNAME: "${CODE_REVIEW_USERNAME:-revisor}"
+      CODE_REVIEW_PASSWORD: "${CODE_REVIEW_PASSWORD:-}"
+      MACKAI_METRICS_ENABLED: "${MACKAI_METRICS_ENABLED:-true}"
+      MACKAI_URL: "${MACKAI_URL:-https://mackai-conversas.calmfield-d7c6c49f.brazilsouth.azurecontainerapps.io}"
       USE_CHAT_DB: "true"
       USE_NOTIFICATIONS_DB: "true"
       DATABASE_URL: postgresql://module6:module6-local@db:5432/module6

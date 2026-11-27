@@ -34,13 +34,13 @@ class Settings(BaseSettings):
     use_githubsync_real: bool = True
     githubsync_timeout_seconds: float = 20.0
     # Métricas por projeto do MackAI (Módulo 7), somente com Bearer real do M1.
-    mackai_metrics_enabled: bool = False
+    mackai_metrics_enabled: bool = True
     mackai_url: str = "https://mackai-conversas.calmfield-d7c6c49f.brazilsouth.azurecontainerapps.io"
     mackai_timeout_seconds: float = 5.0
 
-    # Integração Módulo 4 (Code Review), desligada por padrão.
+    # Integração Módulo 4 (Code Review), habilitada quando há credencial configurada.
     # A senha Basic Auth deve vir de secret do backend, nunca do frontend.
-    code_review_enabled: bool = False
+    code_review_enabled: bool = True
     code_review_url: str = "https://revisor-codigo-ia-gio-ach9dbg3g9ekazf3.chilecentral-01.azurewebsites.net"
     code_review_username: str = "revisor"
     code_review_password: str | None = None

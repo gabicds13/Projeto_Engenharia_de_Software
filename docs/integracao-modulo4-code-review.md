@@ -38,7 +38,7 @@ USE_GITHUBSYNC_REAL=true
 GITHUB_URL=https://ai-platform-github-service-eduardo-frapb8fbbcd0bfdm.brazilsouth-01.azurewebsites.net
 ```
 
-A flag `CODE_REVIEW_ENABLED` começa em `false`.
+Nesta branch, `CODE_REVIEW_ENABLED` começa em `true`; `false` explícito ainda desativa a integração. Sem senha configurada, a consulta permanece indisponível, sem dados simulados. Para testar a branch localmente, mantenha a credencial autorizada já existente no `backend/.env` (não versionado). Para Docker Compose, forneça a variável `CODE_REVIEW_PASSWORD` no ambiente do Compose, sem registrá-la no repositório. As variáveis do Azure da main não são copiadas pelo Git.
 O Módulo 2 precisa ter um repositório conectado ao projeto. O BFF não envia a senha M4 ao navegador.
 O cliente exige HTTPS e não segue redirecionamentos.
 
