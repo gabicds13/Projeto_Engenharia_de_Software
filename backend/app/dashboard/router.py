@@ -1,12 +1,14 @@
-"""Rota do dashboard: agrega métricas dos Módulos 1 e 2."""
+"""Rota do dashboard: agrega métricas dos Módulos 1, 2, 4 e 7."""
 from __future__ import annotations
 
 import asyncio
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
 
 from app.clients import get_backlog_client, get_github_client
 from app.clients.backlog_client import HttpBacklogClient, MockBacklogClient
+from app.clients.code_review_metrics_client import fetch_code_review_metrics
 from app.clients.github_client import HttpGithubClient, MockGithubClient
 from app.clients.mackai_client import MackaiUnavailable, fetch_mackai_metrics
 from app.clients.projects_client import ensure_project_access
@@ -57,7 +59,18 @@ async def get_dashboard(
     if isinstance(github_client, MockGithubClient):
         mock_keys.update(("commits_week", "open_prs", "weekly"))
     if isinstance(backlog_client, MockBacklogClient):
-        mock_keys.update(("reviews_pending", "stories_by_status"))
+        mock_keys.add("stories_by_status")
+
+    async def load_reviews_completed(project: str) -> int:
+        # Nunca omitir project_id: a visão global não pertence a este card.
+        metrics = await fetch_code_review_metrics(
+            base_url=settings.code_review_url,
+            project_id=str(UUID(project)),
+            days=14,
+            timeout=settings.code_review_timeout_seconds,
+        )
+        # Total informado pelo M4, não uma estimativa de reviews pendentes.
+        return metrics.total_revisoes
 
     aggregator = MetricsAggregator(
         backlog=backlog_client,
@@ -66,6 +79,8 @@ async def get_dashboard(
         mock_keys=frozenset(mock_keys),
         cache_scope=f"user:{user.user_id}",
         github_timeout_seconds=settings.githubsync_timeout_seconds if isinstance(github_client, HttpGithubClient) else None,
+        reviews_completed=load_reviews_completed if settings.code_review_enabled else None,
+        review_timeout_seconds=settings.code_review_timeout_seconds + 0.5,
     )
 
     async def load_mackai() -> MackaiMetricsResult:
