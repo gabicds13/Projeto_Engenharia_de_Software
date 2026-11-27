@@ -65,7 +65,7 @@ Os testes usam apenas respostas simuladas; não confirmam acesso à API de produ
 O grupo M4 disponibilizou `GET /api/dashboard/metricas?project_id=UUID&dias=14`, sem
 senha ou chave. O BFF expõe `GET /api/bff/code-reviews/metrics?project_id=UUID&dias=14`,
 exige JWT, valida acesso ao projeto no M1 e sempre encaminha o UUID e período (1–90 dias).
-Não encaminha credenciais ao M4, não consulta métricas globais e não substitui falhas por mock.
+Não encaminha credenciais ao M4 nem substitui falhas por mock. O escopo do projeto nunca é substituído por dados globais automaticamente.
 Usa as configurações existentes `CODE_REVIEW_ENABLED`, `CODE_REVIEW_URL` e
 `CODE_REVIEW_TIMEOUT_SECONDS`. O histórico de PRs continua usando Basic Auth e a validação
 de repositórios no M2, independentemente das novas métricas.
@@ -78,4 +78,16 @@ representam reviews pendentes.
 O contrato fornecido pelo grupo informa `total_revisoes`, `total_achados`,
 `por_prioridade`, `por_categoria`, `por_arquitetura` e `revisoes_por_dia`.
 A implementação valida as distribuições como mapas de contagens e a evolução como uma
-lista de datas e contagens. A verificação da resposta real do Azure segue pendente.
+lista de datas e contagens. O contrato real do Azure foi consultado em 27/11/2026: a API retorna o campo project_id (UUID no escopo de projeto e null no global).
+
+
+### Visão global explícita
+
+O grupo M4 publicou contagens globais sem credenciais no mesmo endpoint, omitindo
+`project_id`. O novo endpoint autenticado `GET /api/bff/code-reviews/metrics/global?dias=14`
+faz essa consulta somente quando o usuário seleciona **Todos os projetos**.
+O BFF exige `project_id: null` na resposta global e o UUID correspondente na resposta
+de projeto; retorna apenas os campos numéricos agregados previstos no contrato.
+O painel rotula a visão global separadamente. Nenhuma consulta de histórico ou outras
+métricas muda de escopo. Em 27/11/2026 a API global retornou 6 revisões e 30 achados
+no período de 14 dias; são valores dinâmicos, não fixtures incorporadas ao produto.

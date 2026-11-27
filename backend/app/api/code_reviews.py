@@ -93,6 +93,35 @@ async def code_review_metrics(
         raise ServiceUnavailableError("Métricas do Módulo 4 indisponíveis no momento.") from exc
     return {
         "project_id": project,
+        "scope": "project",
+        "dias": dias,
+        "source": "module-4",
+        "data_origin": "real",
+        "metrics": metrics,
+    }
+
+
+@router.get("/metrics/global")
+async def global_code_review_metrics(
+    dias: int = Query(14, ge=1, le=90),
+    user: CurrentUser = Depends(get_current_user),
+    settings: Settings = Depends(get_settings),
+):
+    """Contagens globais públicas divulgadas pelo M4, sem dados individuais de PR."""
+    if not settings.code_review_enabled:
+        raise ServiceUnavailableError("Integração com o Módulo 4 não está ativada.")
+    try:
+        metrics = await fetch_code_review_metrics(
+            base_url=settings.code_review_url,
+            project_id=None,
+            days=dias,
+            timeout=settings.code_review_timeout_seconds,
+        )
+    except CodeReviewUnavailable as exc:
+        raise ServiceUnavailableError("Métricas globais do Módulo 4 indisponíveis no momento.") from exc
+    return {
+        "project_id": None,
+        "scope": "global",
         "dias": dias,
         "source": "module-4",
         "data_origin": "real",

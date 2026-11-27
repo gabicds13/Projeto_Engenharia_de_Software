@@ -1,4 +1,4 @@
-"""Testes do novo contrato do M4: somente contagens, sem acesso global."""
+"""Testes do novo contrato do M4: somente contagens, escopos separados."""
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
@@ -50,13 +50,13 @@ def test_real_metrics_require_project_and_send_no_credentials(client, monkeypatc
         assert request.url.path == "/api/dashboard/metricas"
         assert dict(request.url.params) == {"project_id": PROJECT, "dias": "30"}
         assert "authorization" not in request.headers
-        return httpx.Response(200, json=METRICS | {"private_extra": "not forwarded"})
+        return httpx.Response(200, json=METRICS | {"project_id": PROJECT, "private_extra": "not forwarded"})
 
     _upstream(monkeypatch, handler)
     response = client.get(PATH, params={"project_id": PROJECT, "dias": 30}, headers=_headers())
     assert response.status_code == 200
     assert response.json() == {
-        "project_id": PROJECT, "dias": 30, "source": "module-4",
+        "project_id": PROJECT, "scope": "project", "dias": 30, "source": "module-4",
         "data_origin": "real", "metrics": METRICS,
     }
 
@@ -76,8 +76,8 @@ def test_metrics_never_consult_upstream_without_access(client, monkeypatch):
 def test_metrics_fail_closed_on_invalid_or_unavailable_data(client, monkeypatch):
     for payload, status in (
         (METRICS | {"project_id": OTHER}, 200),
-        (METRICS | {"total_achados": -1}, 200),
-        (METRICS | {"por_prioridade": {}}, 200),
+        (METRICS | {"project_id": PROJECT, "total_achados": -1}, 200),
+        (METRICS | {"project_id": PROJECT, "por_prioridade": {}}, 200),
         ({}, 503),
         ({}, 200),
     ):
@@ -86,3 +86,44 @@ def test_metrics_fail_closed_on_invalid_or_unavailable_data(client, monkeypatch)
         assert response.status_code == 503
         assert "metrics" not in response.json()
         monkeypatch.undo()
+
+
+def test_global_metrics_are_explicit_and_public_aggregates_only(client, monkeypatch):
+    def handler(request):
+        assert request.url.path == "/api/dashboard/metricas"
+        assert dict(request.url.params) == {"dias": "14"}
+        assert "authorization" not in request.headers
+        return httpx.Response(200, json=METRICS | {
+            "project_id": None, "private_extra": "not forwarded",
+        })
+
+    _upstream(monkeypatch, handler)
+    response = client.get(PATH + "/global", headers=_headers())
+    assert response.status_code == 200
+    assert response.json() == {
+        "project_id": None, "scope": "global", "dias": 14,
+        "source": "module-4", "data_origin": "real", "metrics": METRICS,
+    }
+
+
+def test_global_requires_login_and_valid_period(client, monkeypatch):
+    def unexpected(request):
+        raise AssertionError("M4 não deve ser consultado")
+    _upstream(monkeypatch, unexpected)
+    assert client.get(PATH + "/global").status_code == 401
+    assert client.get(PATH + "/global", params={"dias": 91}, headers=_headers()).status_code == 422
+
+
+def test_global_rejects_project_scoped_response(client, monkeypatch):
+    _upstream(monkeypatch, lambda request: httpx.Response(200, json=METRICS | {"project_id": PROJECT}))
+    assert client.get(PATH + "/global", headers=_headers()).status_code == 503
+
+
+def test_project_rejects_global_response_and_never_falls_back(client, monkeypatch):
+    calls = []
+    def handler(request):
+        calls.append(dict(request.url.params))
+        return httpx.Response(200, json=METRICS | {"project_id": None})
+    _upstream(monkeypatch, handler)
+    assert client.get(PATH, params={"project_id": PROJECT}, headers=_headers()).status_code == 503
+    assert calls == [{"dias": "14", "project_id": PROJECT}]

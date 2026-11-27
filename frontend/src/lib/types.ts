@@ -146,8 +146,11 @@ export interface CodeReviewMetrics {
   revisoes_por_dia: { data: string; revisoes: number; achados: number }[];
 }
 
+export type CodeReviewMetricsScope = "project" | "global";
+
 export interface CodeReviewMetricsResponse {
-  project_id: string;
+  project_id: string | null;
+  scope: CodeReviewMetricsScope;
   dias: number;
   source: "module-4";
   data_origin: "real";

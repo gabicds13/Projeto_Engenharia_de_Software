@@ -8,7 +8,7 @@ vi.mock("../../lib/apiClient", () => ({
 }));
 
 const sample = {
-  project_id: "proj-1", dias: 14, source: "module-4", data_origin: "real",
+  project_id: "proj-1", scope: "project", dias: 14, source: "module-4", data_origin: "real",
   metrics: {
     total_revisoes: 3, total_achados: 7,
     por_prioridade: { critical: 1, high: 2, medium: 3, low: 1 },
@@ -58,6 +58,31 @@ describe("Métricas reais do Módulo 4", () => {
     render(<CodeReviewMetricsPanel projectId="proj-1" />);
     expect(await screen.findByText("Revisões realizadas")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Atualizar métricas" }));
+    expect(await screen.findByRole("status")).toHaveTextContent("indisponíveis");
+    expect(screen.queryByText("Revisões realizadas")).not.toBeInTheDocument();
+  });
+
+  it("permite alternar explicitamente entre projeto e visão global", async () => {
+    getMock.mockResolvedValueOnce(sample).mockResolvedValueOnce({
+      ...sample, scope: "global", project_id: null,
+      metrics: { ...sample.metrics, total_revisoes: 6 },
+    }).mockResolvedValueOnce(sample);
+    render(<CodeReviewMetricsPanel projectId="proj-1" />);
+    expect(await screen.findByText("Revisões realizadas")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Projeto selecionado" })).toHaveAttribute("aria-pressed", "true");
+    fireEvent.click(screen.getByRole("button", { name: "Todos os projetos" }));
+    expect(await screen.findByText("6")).toBeInTheDocument();
+    expect(screen.getByText(/estes números não representam exclusivamente/)).toBeInTheDocument();
+    expect(getMock).toHaveBeenCalledWith("/api/bff/code-reviews/metrics/global?dias=14");
+    fireEvent.click(screen.getByRole("button", { name: "Projeto selecionado" }));
+    await waitFor(() => expect(getMock).toHaveBeenLastCalledWith("/api/bff/code-reviews/metrics?project_id=proj-1&dias=14"));
+    expect(screen.queryByText("6")).not.toBeInTheDocument();
+    expect(await screen.findByText("Revisões realizadas")).toBeInTheDocument();
+  });
+
+  it("rejeita escopo global no painel de projeto", async () => {
+    getMock.mockResolvedValue({ ...sample, scope: "global", project_id: null });
+    render(<CodeReviewMetricsPanel projectId="proj-1" />);
     expect(await screen.findByRole("status")).toHaveTextContent("indisponíveis");
     expect(screen.queryByText("Revisões realizadas")).not.toBeInTheDocument();
   });
