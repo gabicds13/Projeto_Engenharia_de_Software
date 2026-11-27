@@ -45,6 +45,11 @@ class Settings(BaseSettings):
     code_review_password: str | None = None
     code_review_timeout_seconds: float = 5.0
 
+    # Módulo 3 — leitura de artefatos por HTTP GET (sem CORS no navegador).
+    module3_enabled: bool = True
+    module3_url: str = "https://modulo3-fhgjdpa6d5bbfvff.canadacentral-01.azurewebsites.net"
+    module3_timeout_seconds: float = 8.0
+
     # Autenticação (JWT emitido pelo Módulo 1)
     jwt_secret: str = "dev-secret-change-me"
     jwt_algorithm: str = "HS256"
