@@ -35,7 +35,37 @@ Configuração no BFF:
 MODULE3_ENABLED=true
 MODULE3_URL=https://modulo3-fhgjdpa6d5bbfvff.canadacentral-01.azurewebsites.net
 MODULE3_TIMEOUT_SECONDS=8
+# Opcional: apenas após confirmar que ambos são o mesmo projeto lógico.
+# Formato: ID_PROJETO_M1=ID_PROJETO_M3
+MODULE3_PROJECT_MAP=f092329c-0747-4b88-92f0-c3036786ce91=3
 ```
+
+## Projetos com identificadores diferentes
+
+O Módulo 1 usa UUIDs, enquanto o Módulo 3 pode usar IDs numéricos.
+A configuração `MODULE3_PROJECT_MAP` permite que o backend faça a correspondência
+de forma explícita, sem alterar os IDs externos nem desativar autorização.
+
+O exemplo acima foi fornecido na verificação de 27/11/2026 e serve apenas
+para demonstrar o vínculo pretendido entre o projeto M1 e o projeto
+`Projeto Teste26112026` (M3, ID 3). **Confirme que pertencem ao mesmo projeto**
+antes de ativar o vínculo em produção. Para outros projetos:
+`MODULE3_PROJECT_MAP=uuid-m1=3,outro-uuid-m1=4`.
+
+O frontend recebe o ID do M1 para navegar pelas rotas internas, e o backend
+traduz para o M3 somente depois de verificar acesso ao projeto no M1.
+Nenhuma associação é criada automaticamente por coincidência de nomes.
+A listagem do M3 permanece somente leitura e não transfere credenciais do M1.
+
+No PowerShell local, configure a variável **antes de iniciar** o Uvicorn:
+```powershell
+$env:MODULE3_PROJECT_MAP="f092329c-0747-4b88-92f0-c3036786ce91=3"
+```
+
+Se a associação estiver correta mas não houver documentos, compare os nomes,
+IDs e resposta do endpoint `/api/bff/module3/projects`. As métricas do Dashboard
+marcadas com `data_origin: mock` continuam simuladas e não são alteradas
+por esta integração.
 
 ## Condições antes do merge
 
@@ -43,8 +73,8 @@ MODULE3_TIMEOUT_SECONDS=8
 2. **Confirmar o formato JSON real**: listas de projetos/artefatos/versões e
    como o ID de análise fica ligado à versão. Não supor uma análise existente
    quando só há um ID de versão; não executar POST.
-3. Confirmar se os IDs de projeto do M1/M6 são os mesmos que o M3 usa.
-   O BFF não associa dados entre IDs diferentes sem vínculo confiável.
+3. Confirmar que cada associação `MODULE3_PROJECT_MAP` representa o mesmo
+   projeto lógico e está autorizada, sem expor outros projetos do M3.
 4. Testar visualmente a aba em conta autorizada.
 5. Verificar CI (pytest, Vitest, build) e revisar código antes de mesclar.
 6. Não incluir prints simulados como prova de integração real.

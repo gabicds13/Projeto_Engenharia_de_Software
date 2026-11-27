@@ -181,8 +181,8 @@ export function ArtifactsPage() {
         </div>
       ) : !projects.length ? (
         <p className="rounded-lg border border-border bg-surface p-5 text-sm text-text-muted">
-          Nenhum projeto do Módulo 3 corresponde aos projetos autorizados do seu login.
-          O Módulo 3 e o Módulo 1 precisam usar o mesmo identificador de projeto.
+          Nenhum projeto do Módulo 3 está associado aos projetos autorizados do seu login.
+          Se os identificadores forem diferentes, configure a associação M1/M3 no backend.
         </p>
       ) : (
         <>

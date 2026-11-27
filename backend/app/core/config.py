@@ -49,6 +49,9 @@ class Settings(BaseSettings):
     module3_enabled: bool = True
     module3_url: str = "https://modulo3-fhgjdpa6d5bbfvff.canadacentral-01.azurewebsites.net"
     module3_timeout_seconds: float = 8.0
+    # Relação explícita M1=M3; vazio por padrão. Ex.: "id-do-m1=3".
+    # Deve ser configurada após verificar que ambos representam o mesmo projeto.
+    module3_project_map: str = ""
 
     # Autenticação (JWT emitido pelo Módulo 1)
     jwt_secret: str = "dev-secret-change-me"
