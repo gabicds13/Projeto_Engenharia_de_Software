@@ -67,9 +67,9 @@ describe("Módulo 3 — artefatos", () => {
     expect(screen.getByRole("alert")).toHaveTextContent("Não foi possível consultar os projetos do usuário.");
   });
 
-  it("avisa quando não existem projetos com IDs compatíveis", async () => {
+  it("avisa quando não existem projetos associados", async () => {
     getMock.mockResolvedValue({ items: [] });
     render(<ArtifactsPage />);
-    expect(await screen.findByText(/Nenhum projeto do Módulo 3 corresponde/)).toBeInTheDocument();
+    expect(await screen.findByText(/Nenhum projeto do Módulo 3 está associado/)).toBeInTheDocument();
   });
 });
