@@ -1,4 +1,5 @@
-import { NavLink } from "react-router-dom";
+import { useEffect, useId, useRef, useState } from "react";
+import { NavLink, useLocation } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import { useTheme } from "../theme/ThemeProvider";
 import { EXTERNAL_MODULES } from "./ExternalModulesMenu";
@@ -40,18 +41,14 @@ export function Navbar({
           Engenharia de Software<span className="text-brand-accent">.</span>
         </NavLink>
 
-        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1 lg:flex-nowrap lg:overflow-x-auto" aria-label="Módulos e páginas">
+        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1 xl:flex-nowrap" aria-label="Módulos da plataforma">
           <ModuleLink number={1} label="Projetos" icon="▣" />
           <ModuleLink number={2} label="GitHub Sync" icon="☍" />
           <ModuleLink number={3} label="Artefatos" icon="▤" />
           <ModuleLink number={4} label="Code Review" icon="⚙" />
           <ModuleLink number={5} label="Curadoria" icon="★" />
-          <TabLink to="/notificacoes" label="Notificações" icon="✉" badge={unreadBadge} />
+          <Module6Menu unreadBadge={unreadBadge} chatUnreadBadge={chatUnreadBadge} />
           <ModuleLink number={7} label="MackAI" icon="✦" />
-          <span className="hidden h-4 w-px shrink-0 bg-white/20 lg:block" aria-hidden="true" />
-          <TabLink to="/dashboard" label="Dashboard" icon="▥" />
-          <TabLink to="/artefatos" label="Artefatos do projeto" icon="▤" />
-          <TabLink to="/chat" label="Chat" icon="◫" badge={chatUnreadBadge} />
         </div>
 
         <div className="flex min-w-0 flex-wrap items-center gap-2 lg:shrink-0 lg:flex-nowrap lg:justify-end">
@@ -88,32 +85,97 @@ export function Navbar({
   );
 }
 
+function Module6Menu({ unreadBadge, chatUnreadBadge }: { unreadBadge?: number; chatUnreadBadge?: number }) {
+  const [open, setOpen] = useState(false);
+  const menuId = useId();
+  const menuRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const { pathname } = useLocation();
+
+  useEffect(() => { setOpen(false); }, [pathname]);
+
+  useEffect(() => {
+    if (!open) return;
+    const outside = (event: PointerEvent) => {
+      if (event.target instanceof Node && !menuRef.current?.contains(event.target)) {
+        setOpen(false);
+      }
+    };
+    const escape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setOpen(false);
+        triggerRef.current?.focus();
+      }
+    };
+    document.addEventListener("pointerdown", outside);
+    document.addEventListener("keydown", escape);
+    return () => {
+      document.removeEventListener("pointerdown", outside);
+      document.removeEventListener("keydown", escape);
+    };
+  }, [open]);
+
+  const close = () => setOpen(false);
+
+  return (
+    <div ref={menuRef} className="relative shrink-0">
+      <button ref={triggerRef} type="button" aria-expanded={open} aria-controls={menuId}
+        onClick={() => setOpen(value => !value)}
+        className={`${linkBase} inline-flex items-center gap-1.5 bg-primary-hover text-white`}>
+        <span aria-hidden="true">✉</span>
+        Notificações
+        <CountBadge value={unreadBadge} />
+        <span aria-hidden="true" className={open ? "rotate-180" : ""}>▾</span>
+      </button>
+      <div id={menuId} hidden={!open}
+        className="z-50 mt-1 w-56 max-w-[calc(100vw-2rem)] rounded-lg border border-border bg-surface p-1.5 text-text shadow-lg lg:absolute lg:left-0 lg:top-full">
+        {open && (
+          <div aria-label="Páginas do Módulo 6" className="flex flex-col gap-1">
+            <p className="px-3 py-1 text-xs font-semibold text-text-muted">Módulo 6</p>
+            <TabLink to="/dashboard" label="Dashboard" icon="▥" onClick={close} />
+            <TabLink to="/artefatos" label="Artefatos do projeto" icon="▤" onClick={close} />
+            <TabLink to="/notificacoes" label="Notificações" icon="✉" badge={unreadBadge} onClick={close} />
+            <TabLink to="/chat" label="Chat" icon="◫" badge={chatUnreadBadge} onClick={close} />
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function CountBadge({ value }: { value?: number }) {
+  return value && value > 0 ? (
+    <span className="metric inline-flex min-w-5 items-center justify-center rounded-full bg-priority-critical px-1 text-xs font-semibold text-white">
+      {value}
+    </span>
+  ) : null;
+}
+
 function TabLink({
   to,
   label,
   icon,
   badge,
+  onClick,
 }: {
   to: string;
   label: string;
   icon: string;
   badge?: number;
+  onClick: () => void;
 }) {
   return (
     <NavLink
       to={to}
+      onClick={onClick}
       className={({ isActive }) =>
-        `${linkBase} ${isActive ? "bg-primary-hover text-white" : inactiveLink}`
+        `${linkBase} block px-3 py-2 ${isActive ? "bg-primary text-white" : "text-text hover:bg-bg"}`
       }
     >
       <span className="inline-flex items-center gap-1.5">
         <span aria-hidden="true">{icon}</span>
         {label}
-        {badge && badge > 0 ? (
-          <span className="metric inline-flex min-w-5 items-center justify-center rounded-full bg-priority-critical px-1 text-xs font-semibold text-white">
-            {badge}
-          </span>
-        ) : null}
+        <CountBadge value={badge} />
       </span>
     </NavLink>
   );

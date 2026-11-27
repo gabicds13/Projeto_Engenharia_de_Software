@@ -34,6 +34,7 @@ describe("Etapa 4 — navegação do portal", () => {
       </MemoryRouter>,
     );
 
+    fireEvent.click(screen.getByRole("button", { name: /Notificações/ }));
     expect(screen.getByRole("link", { name: "Dashboard" })).toHaveAttribute("href", "/dashboard");
     expect(screen.getByRole("link", { name: "Artefatos do projeto" })).toHaveAttribute("href", "/artefatos");
     expect(screen.getByRole("link", { name: /Notificações/ })).toHaveAttribute("href", "/notificacoes");
@@ -52,15 +53,16 @@ describe("Etapa 4 — navegação do portal", () => {
       "https://modulo3-fhgjdpa6d5bbfvff.canadacentral-01.azurewebsites.net/app/",
       "https://revisor-codigo-ia-gio-ach9dbg3g9ekazf3.chilecentral-01.azurewebsites.net/",
       "https://frontmodulo5-ecaqg8fghzhyeuh2.brazilsouth-01.azurewebsites.net/",
-      "/notificacoes",
       "https://mackai-conversas.calmfield-d7c6c49f.brazilsouth.azurecontainerapps.io/",
-      "/dashboard",
-      "/artefatos",
-      "/chat",
     ]);
     for (const link of links.filter(link => link.getAttribute("href")?.startsWith("https:"))) {
       expect(link).not.toHaveAttribute("target");
     }
+    const trigger = screen.getByRole("button", { name: /Notificações/ });
+    expect(trigger).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByRole("link", { name: "Dashboard" })).not.toBeInTheDocument();
+    fireEvent.click(trigger);
+    expect(trigger).toHaveAttribute("aria-expanded", "true");
     expect(screen.getByRole("link", { name: "Notificações" })).toHaveAttribute("aria-current", "page");
     expect(screen.getByRole("link", { name: "Artefatos" })).not.toHaveAttribute("aria-current");
   });
@@ -68,12 +70,28 @@ describe("Etapa 4 — navegação do portal", () => {
   it("separa o atalho externo do Módulo 3 da página interna de artefatos", () => {
     render(<MemoryRouter initialEntries={["/artefatos"]}><Navbar /></MemoryRouter>);
     const module3 = screen.getByRole("link", { name: "Artefatos" });
+    fireEvent.click(screen.getByRole("button", { name: /Notificações/ }));
     const integrated = screen.getByRole("link", { name: "Artefatos do projeto" });
     expect(module3).toHaveAttribute("href", "https://modulo3-fhgjdpa6d5bbfvff.canadacentral-01.azurewebsites.net/app/");
     expect(module3).not.toHaveAttribute("target");
     expect(module3).not.toHaveAttribute("aria-current");
     expect(integrated).toHaveAttribute("href", "/artefatos");
     expect(integrated).toHaveAttribute("aria-current", "page");
+  });
+
+  it("fecha o submenu ao selecionar uma página, clicar fora ou pressionar Escape", () => {
+    render(<MemoryRouter initialEntries={["/dashboard"]}><Navbar /></MemoryRouter>);
+    const trigger = screen.getByRole("button", { name: /Notificações/ });
+    fireEvent.click(trigger);
+    fireEvent.click(screen.getByRole("link", { name: "Chat" }));
+    expect(trigger).toHaveAttribute("aria-expanded", "false");
+    fireEvent.click(trigger);
+    fireEvent.pointerDown(document.body);
+    expect(trigger).toHaveAttribute("aria-expanded", "false");
+    fireEvent.click(trigger);
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(trigger).toHaveAttribute("aria-expanded", "false");
+    expect(trigger).toHaveFocus();
   });
 
   it("mantém ações de tema e logout disponíveis", () => {
@@ -97,8 +115,8 @@ describe("Etapa 4 — navegação do portal", () => {
     const nav = container.querySelector("nav");
     expect(nav).toHaveClass("flex-col");
     expect(nav).toHaveClass("lg:flex-row");
-    const links = screen.getByRole("link", { name: /Dashboard/ }).parentElement;
-    expect(links).toHaveClass("flex-wrap", "lg:flex-nowrap", "lg:overflow-x-auto");
+    const links = screen.getByRole("link", { name: "Projetos" }).parentElement;
+    expect(links).toHaveClass("flex-wrap", "xl:flex-nowrap");
     expect(nav).toHaveClass("lg:flex-nowrap");
   });
 
@@ -116,6 +134,7 @@ describe("Etapa 4 — navegação do portal", () => {
     expect(identity).not.toHaveTextContent("·");
     expect(identity).toHaveClass("min-w-0", "lg:truncate");
     expect(screen.getByRole("button", { name: "Sair" })).toHaveClass("shrink-0");
+    fireEvent.click(screen.getByRole("button", { name: /Notificações/ }));
     expect(screen.getByRole("link", { name: /Chat/ })).toHaveClass("shrink-0", "whitespace-nowrap");
     expect(screen.getByRole("link", { name: "Code Review" })).toHaveClass("shrink-0");
   });
