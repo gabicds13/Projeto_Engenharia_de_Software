@@ -107,6 +107,7 @@ def test_upstream_failure_is_isolated(client, monkeypatch):
 
 def test_explicit_mapping_uses_m1_identity_and_m3_artifact_source(client, monkeypatch):
     """Token só autoriza M1; projeto numérico M3 vem de configuração do servidor."""
+    m1_id = "f092329c-0747-4b88-92f0-c3036786ce91"
     class MappedModule3:
         calls = []
         def __init__(self, settings):
@@ -124,23 +125,23 @@ def test_explicit_mapping_uses_m1_identity_and_m3_artifact_source(client, monkey
             raise AssertionError("Unexpected path " + path)
     MappedModule3.calls = []
     monkeypatch.setattr(api, "Module3Client", MappedModule3)
-    client.app.dependency_overrides[get_settings] = lambda: Settings(module3_project_map="p-123=3")
+    client.app.dependency_overrides[get_settings] = lambda: Settings(module3_project_map=f"{m1_id}=3")
     try:
-        r = client.get("/api/bff/module3/projects", headers=_headers())
+        r = client.get("/api/bff/module3/projects", headers=_headers(projects=(m1_id,)))
         assert r.status_code == 200
         assert r.json() == [{
-            "id": "p-123", "project_id": "p-123", "module3_project_id": "3",
+            "id": m1_id, "project_id": m1_id, "module3_project_id": "3",
             "name": "Projeto Teste26112026",
         }]
-        r = client.get("/api/bff/module3/projects/p-123/artifacts", headers=_headers())
+        r = client.get(f"/api/bff/module3/projects/{m1_id}/artifacts", headers=_headers(projects=(m1_id,)))
         assert r.status_code == 200
         assert r.json()[0]["name"] == "testeDile.md"
-        assert client.get("/api/bff/module3/projects/p-123/artifacts/12/versions", headers=_headers()).status_code == 200
-        assert client.get("/api/bff/module3/projects/p-123", headers=_headers()).json()["module3_project_id"] == "3"
+        assert client.get(f"/api/bff/module3/projects/{m1_id}/artifacts/12/versions", headers=_headers(projects=(m1_id,))).status_code == 200
+        assert client.get(f"/api/bff/module3/projects/{m1_id}", headers=_headers(projects=(m1_id,))).json()["module3_project_id"] == "3"
         assert "/projects/3/artifacts/" in MappedModule3.calls
         # '3' não passa a ser um projeto do M1 ao configurar o vínculo.
-        assert client.get("/api/bff/module3/projects/3/artifacts", headers=_headers()).status_code == 403
-        assert client.get("/api/bff/module3/projects/p-123/artifacts", headers=_headers(projects=("other",))).status_code == 403
+        assert client.get("/api/bff/module3/projects/3/artifacts", headers=_headers(projects=(m1_id,))).status_code == 403
+        assert client.get(f"/api/bff/module3/projects/{m1_id}/artifacts", headers=_headers(projects=("other",))).status_code == 403
     finally:
         client.app.dependency_overrides.clear()
 
